@@ -1,0 +1,101 @@
+const Plan = require("../models/planModel");
+
+// GET tous les plans (public)
+exports.getAllPlans = async (req, res) => {
+  try {
+    const plans = await Plan.find({ isActive: true }).sort({ order: 1, price: 1 });
+    res.status(200).json({ status: "success", results: plans.length, data: { plans } });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};
+
+// GET tous les plans (admin — y compris inactifs)
+exports.getAllPlansAdmin = async (req, res) => {
+  try {
+    const plans = await Plan.find().sort({ order: 1, price: 1 });
+    res.status(200).json({ status: "success", results: plans.length, data: { plans } });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};
+
+// GET un plan par ID
+exports.getPlanById = async (req, res) => {
+  try {
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) return res.status(404).json({ status: "fail", message: "Plan non trouvé" });
+    res.status(200).json({ status: "success", data: { plan } });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};
+
+// POST créer un plan
+exports.createPlan = async (req, res) => {
+  try {
+    const { name, price, billingCycle, description, features,
+            maxUsers, maxWorkflows, isActive, isPopular, color, order } = req.body;
+
+    // Si isPopular = true → retirer isPopular des autres
+    if (isPopular) {
+      await Plan.updateMany({}, { isPopular: false });
+    }
+
+    const plan = await Plan.create({
+      name, price, billingCycle, description,
+      features: features || [],
+      maxUsers, maxWorkflows, isActive,
+      isPopular, color, order
+    });
+
+    res.status(201).json({ status: "success", data: { plan } });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};
+
+// PATCH modifier un plan
+exports.updatePlan = async (req, res) => {
+  try {
+    // Si isPopular → retirer des autres
+    if (req.body.isPopular) {
+      await Plan.updateMany({ _id: { $ne: req.params.id } }, { isPopular: false });
+    }
+
+    const plan = await Plan.findByIdAndUpdate(req.params.id, req.body, {
+      new: true, runValidators: true
+    });
+
+    if (!plan) return res.status(404).json({ status: "fail", message: "Plan non trouvé" });
+    res.status(200).json({ status: "success", data: { plan } });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};
+
+// PATCH toggle actif/inactif
+exports.togglePlanStatus = async (req, res) => {
+  try {
+    const plan = await Plan.findById(req.params.id);
+    if (!plan) return res.status(404).json({ status: "fail", message: "Plan non trouvé" });
+
+    plan.isActive = !plan.isActive;
+    await plan.save();
+
+    res.status(200).json({ status: "success", data: { plan } });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};
+
+// DELETE supprimer un plan
+exports.deletePlan = async (req, res) => {
+  try {
+    const plan = await Plan.findByIdAndDelete(req.params.id);
+    if (!plan) return res.status(404).json({ status: "fail", message: "Plan non trouvé" });
+    res.status(200).json({ status: "success", message: "Plan supprimé" });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
+  }
+};

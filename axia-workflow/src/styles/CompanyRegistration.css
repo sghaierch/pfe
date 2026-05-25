@@ -1,0 +1,113 @@
+.registration-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.registration-container {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 20px;
+  flex: 1;
+}
+
+.registration-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.registration-header h1 {
+  font-size: 36px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.registration-header p {
+  color: #64748b;
+  font-size: 16px;
+}
+
+.steps-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 48px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-number {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.step.active .step-number {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+}
+
+.step-label {
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.step.active .step-label {
+  color: #0f172a;
+}
+
+.step-line {
+  width: 120px;
+  height: 2px;
+  background: #e2e8f0;
+  margin: 0 20px;
+}
+
+/* Success page */
+.registration-success {
+  max-width: 600px;
+  margin: 80px auto;
+  text-align: center;
+  padding: 48px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+
+.success-icon {
+  font-size: 72px;
+  margin-bottom: 24px;
+}
+
+.registration-success h1 {
+  font-size: 28px;
+  color: #0f172a;
+  margin-bottom: 16px;
+}
+
+.registration-success p {
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.success-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 32px;
+}
