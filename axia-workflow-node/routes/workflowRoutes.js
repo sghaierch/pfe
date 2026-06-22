@@ -27,6 +27,7 @@ const {
   deactivateWorkflow,
   deleteWorkflow,
   getActiveTemplates,
+  moveToProject
 } = require("../controllers/workflowController");
 
 // ── Dossier uploads ───────────────────────────────────────────────────────────
@@ -105,4 +106,5 @@ router.patch("/:id/archive",                  permitMW("company_admin"), archive
 router.patch("/:id/deactivate", permitMW("company_admin"), deactivateWorkflow);
 router.patch("/:id/visibility",               permitMW("company_admin"), updateWorkflowVisibility);
 router.delete("/:id",permitMW("company_admin"), deleteWorkflow); // ✅ AJOUTER
+router.patch("/:id/move-project", permitMW("company_admin"), moveToProject);
 module.exports = router;

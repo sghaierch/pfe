@@ -22,6 +22,16 @@ const subscriptionService = {
     }
   },
 
+  // ✅ SUPERADMIN — abonnements d'un tenant spécifique
+  getByTenant: async (tenantId) => {
+    try {
+      const response = await API.get(`/subscriptions?tenant=${tenantId}`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Erreur récupération' };
+    }
+  },
+
   // SUPERADMIN — approuver
   approve: async (id, adminNote = '') => {
     try {

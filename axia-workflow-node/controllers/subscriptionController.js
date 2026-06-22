@@ -4,7 +4,7 @@ const Plan         = require('../models/planModel');
 const bcrypt       = require('bcryptjs');
 const mongoose     = require('mongoose');
 const nodemailer   = require('nodemailer');
-
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const safeModel = (conn, name, schema) => {
   try { return conn.model(name); }
@@ -369,20 +369,24 @@ exports.rejectSubscription = async (req, res) => {
 exports.getAllSubscriptions = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.tenant) filter.tenant = req.query.tenant; // ← ajouter ça
-    
-    const subs = await Subscription.find(filter)
-      .populate('tenant','companyName adminEmail dbName status contactPhone employeesCount matriculeFiscal contactEmail')
-      .populate('plan', 'name price color')
+ 
+    // ✅ Filtre optionnel par tenant (pour SubscriptionHistory)
+    if (req.query.tenant) {
+      filter.tenant = req.query.tenant;
+    }
+ 
+    const subscriptions = await Subscription.find(filter)
+      .populate('tenant')
+      .populate('plan')
       .sort({ createdAt: -1 });
-      
+ 
     res.status(200).json({
       status: 'success',
-      results: subs.length,
-      data: { subscriptions: subs }
+      results: subscriptions.length,
+      data: { subscriptions },
     });
   } catch (err) {
-    res.status(500).json({ status: 'fail', message: err.message });
+    res.status(400).json({ status: 'fail', message: err.message });
   }
 };
 
@@ -441,4 +445,126 @@ exports.checkExpiry = async () => {
   } catch (err) {
     console.error('❌ checkExpiry:', err.message);
   }
+};
+exports.createPaymentIntent = async (req, res) => {
+  try {
+    const {
+      companyName, matriculeFiscal, contactEmail, contactPhone,
+      adminFirstName, adminLastName, adminEmail,
+      planId, durationMonths = 1,
+      sector, employeesCount, message,
+    } = req.body;
+
+    // Validation
+    if (!companyName || !contactEmail || !adminFirstName || !adminLastName || !adminEmail || !planId) {
+      return res.status(400).json({ status: 'fail', message: 'Champs obligatoires manquants' });
+    }
+
+    const plan = await Plan.findById(planId);
+    if (!plan || !plan.isActive) {
+      return res.status(400).json({ status: 'fail', message: 'Plan non trouvé ou inactif' });
+    }
+
+    // Vérifier unicité email admin
+    const existingEmail = await Tenant.findOne({ adminEmail: adminEmail.toLowerCase() });
+    if (existingEmail) {
+      return res.status(400).json({ status: 'fail', message: 'Cet email administrateur est déjà utilisé.' });
+    }
+
+    // Calculer le montant avec la remise durée
+    const discounts = { 1: 1.00, 3: 0.95, 6: 0.90, 12: 0.80 };
+    const multiplier = discounts[durationMonths] || 1.00;
+    const totalDt = Math.round(plan.price * durationMonths * multiplier);
+    const amountCents = totalDt * 100; // Stripe en centimes
+
+    // Créer le PaymentIntent avec les metadata (récupérées dans le webhook)
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: 'eur', // ou 'tnd' si supporté — sinon utilisez 'eur'
+      metadata: {
+        companyName, matriculeFiscal: matriculeFiscal || '',
+        contactEmail, contactPhone: contactPhone || '',
+        adminFirstName, adminLastName, adminEmail,
+        planId, durationMonths: String(durationMonths),
+        sector: sector || '', employeesCount: employeesCount || '',
+        message: message || '',
+      },
+    });
+
+    res.status(200).json({
+      status: 'success',
+      clientSecret: paymentIntent.client_secret,
+      amount: totalDt,
+    });
+  } catch (err) {
+    console.error('❌ createPaymentIntent:', err.message);
+    res.status(500).json({ status: 'fail', message: err.message });
+  }
+};
+
+// ── POST /subscriptions/webhook — Stripe confirme le paiement ────────────────
+exports.stripeWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('❌ Webhook signature invalide:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object;
+    const m  = pi.metadata;
+
+    try {
+      // Générer mot de passe temporaire
+      const plainPwd  = 'TempPass@' + Math.random().toString(36).slice(-6);
+      const hashedPwd = await bcrypt.hash(plainPwd, 10);
+
+      const base   = m.matriculeFiscal
+        ? m.matriculeFiscal.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+        : m.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      const slug   = base + '_' + Date.now();
+      const dbName = 'tenant_' + slug;
+
+      const tenant = await Tenant.create({
+        companyName:     m.companyName,
+        matriculeFiscal: m.matriculeFiscal || undefined,
+        contactEmail:    m.contactEmail,
+        contactPhone:    m.contactPhone   || undefined,
+        adminFirstName:  m.adminFirstName,
+        adminLastName:   m.adminLastName,
+        adminEmail:      m.adminEmail.toLowerCase(),
+        adminPassword:   hashedPwd,
+        adminPasswordPlain: plainPwd,
+        sector:          m.sector         || undefined,
+        employeesCount:  m.employeesCount || undefined,
+        slug,
+        dbName,
+        status:  'pending',
+        isActive: false,
+        plan:    m.planId,
+      });
+
+      const sub = await Subscription.create({
+        tenant:         tenant._id,
+        plan:           m.planId,
+        status:         'pending',
+        durationMonths: parseInt(m.durationMonths) || 1,
+        requestMessage: m.message || '',
+        stripePaymentIntentId: pi.id, // utile pour traçabilité
+      });
+
+      const plan = await Plan.findById(m.planId);
+      await sendCredentialsEmail(tenant, plainPwd, plan, parseInt(m.durationMonths));
+
+      console.log('✅ Webhook: tenant créé après paiement:', tenant.companyName);
+    } catch (err) {
+      console.error('❌ Webhook traitement:', err.message);
+    }
+  }
+
+  res.json({ received: true });
 };

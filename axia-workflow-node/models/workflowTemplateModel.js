@@ -11,10 +11,11 @@ const tableColumnSchema = new mongoose.Schema({
 
 // ── Schéma d'un champ global ─────────────────────
 // ✅ NOUVEAU : schéma partagé pour fields globaux et steps[].form.fields
+// APRÈS — ajouter options et columns
 const fieldSchema = new mongoose.Schema({
   id:         { type: String, required: true },
   label:      { type: String, required: true },
-  type: {
+  type:       {
     type: String,
     enum: [
       'text', 'number', 'date', 'select', 'textarea',
@@ -23,11 +24,13 @@ const fieldSchema = new mongoose.Schema({
     ],
     default: 'text',
   },
-  required:   { type: Boolean, default: false },
-  readOnly:   { type: Boolean, default: false },
-  autoSource: { type: String, default: '' },
-  options:    { type: [String], default: [] },
-  columns:    { type: [tableColumnSchema], default: [] },
+  required:         { type: Boolean, default: false },
+  readOnly:         { type: Boolean, default: false },
+  autoSource:       { type: String,  default: '' },
+  options:          { type: [String], default: [] },        // ✅ AJOUTER — pour select
+  columns:          { type: [tableColumnSchema], default: [] }, // ✅ AJOUTER — pour table
+  inheritTableFrom: { type: String,  default: '' },
+  extraColumns:     { type: [tableColumnSchema], default: [] },
 }, { _id: false });
 
 

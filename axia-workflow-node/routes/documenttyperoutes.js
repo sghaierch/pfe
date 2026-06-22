@@ -1,0 +1,21 @@
+const express = require('express');
+const router  = express.Router();
+const { protectorMW } = require('../controllers/authController');
+const {
+  getDocumentTypes,
+  getDocumentTypeById,
+  createDocumentType,
+  updateDocumentType,
+  deleteDocumentType,
+  generateNumber
+} = require('../controllers/documentTypeController');
+
+router.use(protectorMW);
+
+router.get('/',     getDocumentTypes);
+router.post('/',    createDocumentType);
+router.get('/:id',  getDocumentTypeById);
+router.patch('/:id', updateDocumentType);
+router.delete('/:id', deleteDocumentType);
+router.post('/:id/generate-number', generateNumber);
+module.exports = router;

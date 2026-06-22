@@ -7,10 +7,10 @@ const projectService = {
     return res.data;
   },
 
-  getById: async (id) => {
-    const res = await API.get(`/projects/${id}`);
-    return res.data;
-  },
+ getById: async (id) => {
+  const res = await API.get(`/projects/${id}`);
+  return res.data.data;  // ← .data.data
+},
 
   create: async (data) => {
     const res = await API.post('/projects', data);

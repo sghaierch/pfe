@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const projectSchemaDefinition  = require("../models/projectModel");
-const workflowSchemaDefinition = require("../models/workflowModel");
+const workflowSchemaDefinition = require("../models/workflowModel").schema;
 
 // ── Helper connexion tenant ───────────────────────────────────────────────────
 const getTenantModels = (req) => {
@@ -42,18 +42,29 @@ exports.getProject = async (req, res) => {
       return res.status(404).json({ status: "fail", message: "Projet non trouvé" });
     }
 
-    // Récupérer les workflows du projet
-    const workflows = await Workflow.find({ project: req.params.id })
-      .select("name status currentStep steps createdAt")
-      .sort({ createdAt: -1 });
-
+    // Récupérer les templates (workflows créés par l'admin)
+  const templates = await Workflow.find({ project: req.params.id, isTemplate: true })
+  .select("name status currentStep steps createdAt dueDate isTemplate templateRef allowedPosts allowedRoles visibility")
+  .sort({ createdAt: -1 });
+    // Récupérer les instances (demandes soumises par les employés)
+  const instances = await Workflow.find({ project: req.params.id, isTemplate: { $ne: true } })
+  .select("name status currentStep steps createdAt dueDate isTemplate templateRef allowedPosts allowedRoles visibility")
+  .sort({ createdAt: -1 });
     res.status(200).json({
       status: "success",
-      data: { project, workflows, workflowCount: workflows.length }
+      data: {
+        project,
+        workflows:  templates,   // rétrocompatibilité — contient les templates
+        templates,
+        instances,
+        workflowCount: templates.length,
+        instanceCount: instances.length,
+      }
     });
   } catch (err) {
-    res.status(500).json({ status: "fail", message: err.message });
-  }
+  console.error('GET /projects/:id ERROR:', err.message); // ← ajoute cette ligne
+  res.status(500).json({ status: "fail", message: err.message });
+}
 };
 
 // ── CREATE projet ─────────────────────────────────────────────────────────────

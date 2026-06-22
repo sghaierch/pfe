@@ -18,8 +18,36 @@ exports.generateWorkflow = async (req, res) => {
       ? 'Postes disponibles : ' + posts.map(p => '"' + p.name + '"').join(', ')
       : 'Utilise des postes generiques comme "Directeur RH", "Directeur Financier"';
 
-    const exampleJSON = '{"workflowName":"Demande de conge","description":"Processus de demande de conge annuel","visibility":"global","steps":[{"name":"Demande Employe","description":"L\'employe soumet sa demande","assignedPost":"","delai":"","claims":{"canValidate":false,"canReject":false,"canModify":true,"canView":true},"form":{"fields":[{"id":"f_0_0","label":"N Demande","type":"auto_number","required":false,"readOnly":true,"options":[],"columns":[]},{"id":"f_0_1","label":"Demandeur","type":"auto_user","required":false,"readOnly":true,"options":[],"columns":[]},{"id":"f_0_2","label":"Date de debut","type":"date","required":true,"readOnly":false,"options":[],"columns":[]},{"id":"f_0_3","label":"Date de fin","type":"date","required":true,"readOnly":false,"options":[],"columns":[]},{"id":"f_0_4","label":"Nombre de jours","type":"number","required":true,"readOnly":false,"options":[],"columns":[]},{"id":"f_0_5","label":"Motif","type":"textarea","required":true,"readOnly":false,"options":[],"columns":[]}]},"checklist":[]},{"name":"Validation RH","description":"Le DRH valide la demande","assignedPost":"Directeur RH","delai":"2j","claims":{"canValidate":true,"canReject":true,"canModify":false,"canView":true},"form":{"fields":[{"id":"f_1_0","label":"Decision","type":"select","required":true,"readOnly":false,"options":["Approuve","Refuse"],"columns":[]},{"id":"f_1_1","label":"Commentaire","type":"textarea","required":false,"readOnly":false,"options":[],"columns":[]},{"id":"f_1_2","label":"Solde restant","type":"number","required":false,"readOnly":false,"options":[],"columns":[]}]},"checklist":[{"id":"c_1_0","label":"Solde de conge verifie","required":true,"checked":false}]}]}';
-
+    const exampleJSON = '{"workflowName":"Demande de depot materiel","description":"Circuit de validation des demandes de sortie de stock","visibility":"global","steps":['
+      + '{"name":"Demande Employe","description":"L\'employe soumet sa demande","assignedPost":"","delai":"",'
+      + '"claims":{"canValidate":false,"canReject":false,"canModify":true,"canView":true},'
+      + '"form":{"fields":['
+      + '{"id":"f_0_0","label":"N Demande","type":"auto_number","required":false,"readOnly":true,"options":[],"columns":[],"inheritTableFrom":"","extraColumns":[]},'
+      + '{"id":"f_0_1","label":"Demandeur","type":"auto_user","required":false,"readOnly":true,"options":[],"columns":[],"inheritTableFrom":"","extraColumns":[]},'
+      + '{"id":"f_0_2","label":"Date de demande","type":"date","required":true,"readOnly":false,"options":[],"columns":[],"inheritTableFrom":"","extraColumns":[]},'
+      + '{"id":"f_0_3","label":"Articles demandes","type":"table","required":true,"readOnly":false,"options":[],'
+      + '"columns":[{"id":"col_0_1","label":"Nom article","type":"text","required":true},{"id":"col_0_2","label":"Qte demandee","type":"number","required":true}],'
+      + '"inheritTableFrom":"","extraColumns":[]},'
+      + '{"id":"f_0_4","label":"Motif","type":"textarea","required":true,"readOnly":false,"options":[],"columns":[],"inheritTableFrom":"","extraColumns":[]}'
+      + ']},"checklist":[]},'
+      + '{"name":"Validation Achat","description":"Verification disponibilite stock","assignedPost":"Responsable Achat","delai":"2j",'
+      + '"claims":{"canValidate":true,"canReject":true,"canModify":false,"canView":true},'
+      + '"form":{"fields":['
+      + '{"id":"f_1_0","label":"Articles demandes","type":"table","required":false,"readOnly":false,"options":[],'
+      + '"columns":[],"inheritTableFrom":"f_0_3","extraColumns":[]},'
+      + '{"id":"f_1_1","label":"Decision","type":"select","required":true,"readOnly":false,"options":["Approuve","Approuve partiellement","Refuse"],"columns":[],"inheritTableFrom":"","extraColumns":[]},'
+      + '{"id":"f_1_2","label":"Commentaire","type":"textarea","required":false,"readOnly":false,"options":[],"columns":[],"inheritTableFrom":"","extraColumns":[]}'
+      + ']},"checklist":[{"id":"c_1_0","label":"Stock verifie","required":true,"checked":false}]},'
+      + '{"name":"Confirmation RH","description":"Confirmation finale et choix du bon","assignedPost":"Responsable RH","delai":"1j",'
+      + '"claims":{"canValidate":true,"canReject":true,"canModify":false,"canView":true},'
+      + '"form":{"fields":['
+      + '{"id":"f_2_0","label":"Articles confirmes","type":"table","required":true,"readOnly":false,"options":[],'
+      + '"columns":[],"inheritTableFrom":"f_0_3",'
+      + '"extraColumns":[{"id":"col_extra_1","label":"Qte validee","type":"number","required":true}]},'
+      + '{"id":"f_2_1","label":"Type de bon","type":"select","required":true,"readOnly":false,"options":["Bon Achat","Bon Sortie","Bon Fabrication"],"columns":[],"inheritTableFrom":"","extraColumns":[]},'
+      + '{"id":"f_2_2","label":"Signature","type":"signature","required":true,"readOnly":false,"options":[],"columns":[],"inheritTableFrom":"","extraColumns":[]}'
+      + ']},"checklist":[{"id":"c_2_0","label":"Documents verifies","required":true,"checked":false}]}'
+      + ']}';
     const prompt = 'Tu es un expert en gestion de processus metier. Genere un workflow JSON professionnel.\n\n'
       + 'Description du processus : "' + description + '"\n\n'
       + postsContext + '\n\n'
@@ -30,8 +58,17 @@ exports.generateWorkflow = async (req, res) => {
       + '4. Pour les DATES : un champ separe par date (ex: "Date de debut" ET "Date de fin" = 2 champs distincts)\n'
       + '5. Pour les champs "select" de decision : options TOUJOURS ["Approuve","Refuse"] sauf indication contraire\n'
       + '6. Utilise "auto_number" (readOnly:true) pour le N de document, "auto_user" (readOnly:true) pour le demandeur\n'
-      + '7. Pour les listes d\'articles : utilise "table" avec columns (2-4 colonnes avec label+type)\n'
-      + '8. Types autorises : text, number, date, select, textarea, file, checkbox, signature, table, auto_number, auto_user, auto_status\n\n'
+      + '7. Pour les listes d\'articles/produits : utilise "table" avec columns dans l\'etape 0 UNIQUEMENT.\n'
+      + '8. Pour les etapes suivantes (validation/confirmation) qui ont le meme tableau :\n'
+      + '   - NE PAS redefinir les columns\n'
+      + '   - Utilise inheritTableFrom: "id_du_champ_table_etape_0" (ex: "f_0_3")\n'
+      + '   - Ajoute seulement les nouvelles colonnes dans extraColumns (ex: Qte validee)\n'
+      + '   - columns doit etre [] (vide) si inheritTableFrom est defini\n'
+      + '9. Types autorises : text, number, date, select, textarea, file, checkbox, signature, table, auto_number, auto_user, auto_status\n'
+      + '- Chaque champ DOIT avoir un "label" en français explicite (ex: "Numéro de demande", "Demandeur", "Date de demande", "Articles demandés", "Motif"). INTERDIT d\'utiliser "Champ 1", "field1" ou tout label générique.\n'
+      + '- Pour auto_number : label="Numéro de demande", readOnly:true\n'
+      + '- Pour auto_user : label="Demandeur", readOnly:true\n'
+      + '- Les ids doivent être explicites : "f_0_num_demande", "f_0_demandeur", "f_0_date_demande", "f_0_articles_demandes", etc.\n\n'
       + 'EXEMPLE DE FORMAT :\n'
       + exampleJSON + '\n\n'
       + 'GENERE MAINTENANT un JSON adapte a la description fournie en respectant TOUTES les regles. UNIQUEMENT le JSON, rien d\'autre.';
@@ -99,17 +136,19 @@ exports.generateWorkflow = async (req, res) => {
       const isEmployeeStep = si === 0;
 
       const fields = (step.form?.fields || []).length > 0
-        ? step.form.fields.map((f, fi) => ({
-            id:         f.id         || 'f_' + si + '_' + fi,
-            label:      f.label      || 'Champ ' + (fi + 1),
-            type:       f.type       || 'text',
-            required:   f.required   === true,
-            readOnly:   f.readOnly   === true,
-            autoSource: f.autoSource || '',
-            options:    Array.isArray(f.options)  ? f.options  : [],
-            columns:    Array.isArray(f.columns)  ? f.columns  : [],
-          }))
-        : buildDefaultFields(step.name, si);
+      ? step.form.fields.map((f, fi) => ({
+          id:               f.id               || 'f_' + si + '_' + fi,
+          label:            f.label            || 'Champ ' + (fi + 1),
+          type:             f.type             || 'text',
+          required:         f.required         === true,
+          readOnly:         f.readOnly         === true,
+          autoSource:       f.autoSource       || '',
+          options:          Array.isArray(f.options)      ? f.options      : [],
+          columns:          Array.isArray(f.columns)      ? f.columns      : [],
+          inheritTableFrom: f.inheritTableFrom || '',   // ✅ AJOUTER
+          extraColumns:     Array.isArray(f.extraColumns) ? f.extraColumns : [], // ✅ AJOUTER
+        }))
+      : buildDefaultFields(step.name, si);
 
       return {
         ...step,
@@ -286,27 +325,47 @@ exports.chatAssistant = async (req, res) => {
       return res.status(400).json({ status: 'fail', message: 'Messages requis' });
     }
 
-    const systemPrompt = 'Tu es un assistant expert en creation de workflows metier pour l\'application AxiaWorkflow.\n'
-      + 'Tu aides l\'utilisateur a configurer son workflow etape par etape en posant des questions pertinentes.\n\n'
-      + 'Contexte actuel du workflow en construction :\n'
-      + JSON.stringify(context, null, 2) + '\n\n'
-      + 'Tes regles :\n'
-      + '1. Pose UNE question a la fois, courte et claire\n'
-      + '2. Quand tu as assez d\'infos sur une etape, propose de passer a la suivante\n'
-      + '3. Quand le workflow est complet, genere le JSON final avec le mot-cle WORKFLOW_JSON: suivi du JSON\n'
-      + '4. Sois concis, professionnel et en francais\n'
-      + '5. Propose des suggestions concretes basees sur le contexte metier\n\n'
-      + 'REGLES POUR LE JSON FINAL (OBLIGATOIRE) :\n'
-      + '- Etape 0 = employe : assignedPost="" (VIDE), claims={"canValidate":false,"canReject":false,"canModify":true,"canView":true}\n'
-      + '- Etapes 1+ = validation : assignedPost=poste, claims={"canValidate":true,"canReject":true,"canModify":false,"canView":true}\n'
-      + '- UNE SEULE etape employe — INTERDIT d\'avoir "Soumission employee" ET "Demande Employe"\n'
-      + '- Types : text, number, date, select (options:[]), textarea, file, checkbox, signature, table, auto_number, auto_user, auto_status\n'
-      + '- Champs decision : type=select, options=["Approuve","Refuse"]\n'
-      + '- Dates : un champ separe par date\n\n'
-      + '6. Ne genere le WORKFLOW_JSON que lorsque l\'utilisateur confirme que le workflow est complet.';
+    const availablePosts = context.availablePosts || [];
+    const postsContext = availablePosts.length > 0
+      ? 'Postes disponibles dans l\'entreprise : ' + availablePosts.join(', ')
+      : '';
+
+    // ✅ NOUVEAU systemPrompt — assistant de conseil uniquement, pas de création de workflow
+    const systemPrompt =
+      'Tu es un assistant expert en gestion de processus métier pour l\'application AxiaWorkflow.\n'
+      + 'Ton rôle est d\'aider et conseiller l\'utilisateur pendant qu\'il configure son workflow manuellement.\n\n'
+
+      + 'CE QUE TU DOIS FAIRE :\n'
+      + '- Répondre aux questions sur la configuration des workflows\n'
+      + '- Conseiller sur le nombre d\'étapes recommandées selon le processus\n'
+      + '- Suggérer les bons délais pour chaque type de validation\n'
+      + '- Recommander les champs de formulaire adaptés au contexte métier\n'
+      + '- Expliquer la différence entre les types de champs (text, select, table, signature...)\n'
+      + '- Conseiller sur les bonnes pratiques des processus métier\n'
+      + '- Aider à résoudre les problèmes de configuration\n'
+      + '- Suggérer des améliorations sur le workflow en cours de création\n'
+      + '- Expliquer les rôles, permissions et assignations d\'étapes\n\n'
+
+      + 'CE QUE TU NE DOIS JAMAIS FAIRE :\n'
+      + '- Ne jamais générer de JSON\n'
+      + '- Ne jamais créer un workflow complet automatiquement\n'
+      + '- Ne pas collecter des informations pour générer un workflow\n'
+      + '- Ne pas écrire WORKFLOW_JSON ou tout autre format de données structurées\n\n'
+
+      + 'STYLE DE RÉPONSE :\n'
+      + '- Réponds directement et clairement à la question posée\n'
+      + '- Sois concis (3-5 lignes maximum sauf si explication technique nécessaire)\n'
+      + '- Utilise des exemples concrets liés au contexte métier\n'
+      + '- Réponds toujours en français\n'
+      + '- Si la question n\'est pas liée aux workflows, redirige poliment vers ce sujet\n\n'
+
+      + (postsContext ? 'Contexte de l\'entreprise :\n' + postsContext + '\n\n' : '')
+      + (context.workflowName ? 'Workflow en cours de configuration : "' + context.workflowName + '"\n' : '')
+      + (context.steps?.length ? 'Nombre d\'étapes actuelles : ' + context.steps.length + '\n\n' : '');
 
     const userMessages = messages.map(m => ({ role: m.role, content: m.content }));
 
+    // ✅ Injecter le systemPrompt dans le premier message user
     const firstUserIndex = userMessages.findIndex(m => m.role === 'user');
     if (firstUserIndex !== -1) {
       userMessages[firstUserIndex] = {
@@ -323,8 +382,8 @@ exports.chatAssistant = async (req, res) => {
       },
       body: JSON.stringify({
         model:       'llama-3.3-70b-versatile',
-        max_tokens:  1000,
-        temperature: 0.6,
+        max_tokens:  800,
+        temperature: 0.5,
         messages:    userMessages,
       }),
     });
@@ -338,35 +397,19 @@ exports.chatAssistant = async (req, res) => {
     const data    = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
 
-    let workflowJson = null;
-    if (content.includes('WORKFLOW_JSON:')) {
-      try {
-        const jsonPart  = content.split('WORKFLOW_JSON:')[1].trim();
-        const jsonStart = jsonPart.indexOf('{');
-        const jsonEnd   = jsonPart.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          workflowJson = JSON.parse(jsonPart.substring(jsonStart, jsonEnd + 1));
-        }
-      } catch (e) {
-        console.warn('Impossible de parser le WORKFLOW_JSON:', e.message);
-      }
-    }
-
-    const cleanContent = content.replace(/WORKFLOW_JSON:[\s\S]*/g, '').trim();
-
     res.status(200).json({
       status: 'success',
       data: {
-        message:      cleanContent,
-        workflowJson: workflowJson,
+        message:      content.trim(),
+        workflowJson: null,  // ✅ toujours null — l'assistant ne génère plus de workflow
       },
     });
+
   } catch (err) {
     console.error('chatAssistant error:', err.message);
     res.status(500).json({ status: 'fail', message: err.message });
   }
 };
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const buildDefaultFields = (stepName, stepIndex) => [
   { id: 'f_' + stepIndex + '_1', label: 'Decision', type: 'select', required: true, options: ['Approuve', 'Refuse', 'En attente'] },

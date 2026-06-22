@@ -4,422 +4,348 @@ import templateService   from '../../../services/templateService';
 import workflowService   from '../../../services/workflowService';
 import departmentService from '../../../services/departmentService';
 import projectService    from '../../../services/projectService';
+import API from '../../../services/api';
+
+// ── Icons ──────────────────────────────────────────────────────────────────
+const IconArrowL  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
+const IconCheck   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+const IconAlert   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+const IconLoader  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:'spin .9s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
+const IconFolder  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>;
+const IconGlobe   = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
+const IconLock    = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
+const IconX       = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const IconUsers   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const IconArrowR  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
+
+const B = '#2563EB';
 
 const TYPE_LABELS = {
-  validation_confirmation: { label: 'Validation + Confirmation', color: '#4f46e5', bg: '#ede9fe' },
-  confirmation_only:       { label: 'Juste Confirmation',        color: '#059669', bg: '#dcfce7' },
-  automatic:               { label: 'Automatique',               color: '#f59e0b', bg: '#fef3c7' },
+  validation_confirmation: { label:'Validation + Confirmation', color:B,        bg:'#EFF6FF' },
+  confirmation_only:       { label:'Juste Confirmation',        color:'#16A34A', bg:'#F0FDF4' },
+  automatic:               { label:'Automatique',               color:'#D97706', bg:'#FFFBEB' },
 };
-
 const ROLE_CONFIG = {
-  employe:      { icon: '👤', color: '#0891b2', bg: '#e0f2fe', label: 'Employé'      },
-  validateur:   { icon: '✅', color: '#4f46e5', bg: '#ede9fe', label: 'Validateur'   },
-  confirmateur: { icon: '☑️', color: '#059669', bg: '#dcfce7', label: 'Confirmateur' },
-  manager:      { icon: '👔', color: '#7c3aed', bg: '#f5f3ff', label: 'Manager'      },
-  finance:      { icon: '💰', color: '#d97706', bg: '#fef3c7', label: 'Finance'      },
-  responsable:  { icon: '🏢', color: '#dc2626', bg: '#fee2e2', label: 'Responsable'  },
-  rh:           { icon: '🧑‍💼', color: '#0f766e', bg: '#ccfbf1', label: 'RH'           },
-  direction:    { icon: '⭐', color: '#92400e', bg: '#fef9c3', label: 'Direction'    },
+  employe:      { color:'#0891B2', bg:'#E0F2FE', label:'Employé'      },
+  validateur:   { color:B,         bg:'#EFF6FF', label:'Validateur'   },
+  confirmateur: { color:'#16A34A', bg:'#F0FDF4', label:'Confirmateur' },
+  manager:      { color:'#7C3AED', bg:'#F5F3FF', label:'Manager'      },
+  finance:      { color:'#D97706', bg:'#FFFBEB', label:'Finance'      },
+  responsable:  { color:'#DC2626', bg:'#FEF2F2', label:'Responsable'  },
+  rh:           { color:'#0F766E', bg:'#CCFBF1', label:'RH'           },
+  direction:    { color:'#92400E', bg:'#FEF9C3', label:'Direction'    },
 };
 
-const inp = {
-  width: '100%', padding: '10px 14px', borderRadius: '8px',
-  border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box',
-  outline: 'none', background: '#fff',
+// ── Shared input style ─────────────────────────────────────────────────────
+const getInp = (focused, color) => ({
+  width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:'9px',
+  border: focused ? `1.5px solid ${color||B}` : '1.5px solid #E2E8F0',
+  fontSize:'14px', color:'#0F172A', outline:'none', background:'#fff',
+  fontFamily:"'Inter',sans-serif",
+  boxShadow: focused ? `0 0 0 3px rgba(37,99,235,0.1)` : 'none',
+  transition:'border-color 0.15s, box-shadow 0.15s',
+});
+const SInput = ({ value, onChange, placeholder, type='text' }) => {
+  const [f, setF] = useState(false);
+  return <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+    onFocus={()=>setF(true)} onBlur={()=>setF(false)} style={getInp(f)}/>;
 };
-const lbl = {
-  display: 'block', fontWeight: 600, fontSize: '13px',
-  color: '#374151', marginBottom: '6px',
+const SSelect = ({ value, onChange, children, color }) => {
+  const [f, setF] = useState(false);
+  return <select value={value} onChange={onChange}
+    onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+    style={{...getInp(f, color), cursor:'pointer'}}>{children}</select>;
 };
 
+const Lbl = ({ children, required }) => (
+  <label style={{ display:'block', fontWeight:700, fontSize:'12px', color:'#64748B', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'7px' }}>
+    {children}{required && <span style={{color:'#EF4444'}}>*</span>}
+  </label>
+);
+
+const SectionCard = ({ number, title, subtitle, children, color=B }) => (
+  <div style={{ marginBottom:'24px', paddingBottom:'24px', borderBottom:'1.5px solid #F1F5F9' }}>
+    <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom: subtitle ? '6px' : '18px' }}>
+      <div style={{ width:'28px', height:'28px', borderRadius:'8px', background:color, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'13px', flexShrink:0 }}>
+        {number}
+      </div>
+      <h2 style={{ margin:0, fontSize:'15px', fontWeight:800, color:'#0F172A' }}>{title}</h2>
+    </div>
+    {subtitle && <p style={{ margin:'0 0 18px 38px', fontSize:'13px', color:'#64748B', lineHeight:1.6 }}>{subtitle}</p>}
+    {children}
+  </div>
+);
+
+// ── Main ───────────────────────────────────────────────────────────────────
 const CreateWorkflowFromTemplate = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get('template');
 
-  const [template, setTemplate] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [allPosts, setAllPosts] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
-  const [msg,      setMsg]      = useState('');
+  const [allowedPosts, setAllowedPosts] = useState([]);
+  const [template,     setTemplate]     = useState(null);
+  const [projects,     setProjects]     = useState([]);
+  const [allPosts,     setAllPosts]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [saving,       setSaving]       = useState(false);
+  const [msg,          setMsg]          = useState('');
+  const [documentTypes,setDocumentTypes]= useState([]);
 
-  const [form, setForm] = useState({
-    name:        '',
-    description: '',
-    projectId:   '',
-    dueDate:     '',
-    docType:     '',
-    // ✅ FIX BUG 2 : postMapping stocke l'_id du poste (pas le nom)
-    postMapping: {},
-  });
+  const [form, setForm] = useState({ name:'', description:'', projectId:'', dueDate:'', documentTypeId:'', postMapping:{} });
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [tmplRes, postsData, projRes] = await Promise.all([
+        const [tmplRes, postsData, projRes, dtRes] = await Promise.all([
           templateService.getById(templateId),
           departmentService.getAllPosts(),
-          projectService.getAll
-            ? projectService.getAll()
-            : { data: { projects: [] } },
+          projectService.getAll ? projectService.getAll() : { data:{ projects:[] } },
+          API.get('/document-types'),
         ]);
-
+        setDocumentTypes(dtRes.data?.data?.documentTypes?.filter(dt => dt.isActive) || []);
         const tmpl  = tmplRes.data?.template;
         const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
-
-        setTemplate(tmpl);
-        setAllPosts(postsData || []);
-        setProjects(projs);
-
+        setTemplate(tmpl); setAllPosts(postsData||[]); setProjects(projs);
         if (tmpl) {
           const mapping = {};
-          (tmpl.steps || []).forEach((step, i) => {
-            if (i !== 0) {
-              mapping[i] = '';
-            }
-          });
-          setForm(p => ({
-            ...p,
-            name:        tmpl.name,
-            docType:     tmpl.docType || '',
-            postMapping: mapping,
-          }));
+          (tmpl.steps||[]).forEach((step, i) => { if (i !== 0) mapping[i] = ''; });
+          setForm(p => ({ ...p, name:tmpl.name, documentTypeId:'', postMapping:mapping }));
         }
-      } catch (err) {
-        setMsg('ERREUR ' + (err.response?.data?.message || err.message));
-      } finally { setLoading(false); }
+      } catch (err) { setMsg('ERREUR ' + (err.response?.data?.message||err.message)); }
+      finally { setLoading(false); }
     };
     if (templateId) load();
   }, [templateId]);
 
-  // ── Soumission ────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!form.name.trim()) { setMsg('ERREUR Nom du workflow requis'); return; }
     if (!form.projectId)   { setMsg('ERREUR Projet requis');          return; }
-
     let steps = [];
-
     if (template.type === 'automatic') {
-      const employeStep = template.steps?.[0];
+      const es = template.steps?.[0];
       steps = [
-        {
-          name:             employeStep?.name || 'Demande Employé',
-          description:      employeStep?.description || '',
-          order:            0,
-          role:             'employe',
-          assignedPost:     '',
-          assignedPostName: 'Tous les employés',
-          assignedTo:       null,
-          assignedToName:   '',
-          assignedRole:     'employe',
-          form:             employeStep?.form || { fields: [] },
-          checklist:        [],
-          status:           'pending',
-          claims:           { canValidate: false, canReject: false, canModify: true, canView: true },
-        },
-        {
-          name:             'Approbation automatique',
-          description:      'Approuvé automatiquement par le système',
-          order:            1,
-          role:             'system',
-          assignedPost:     'AUTO',
-          assignedPostName: 'Automatique',
-          assignedTo:       null,
-          assignedToName:   '',
-          assignedRole:     '',
-          form:             { fields: [] },
-          checklist:        [],
-          status:           'pending',
-          claims:           { canValidate: true, canReject: true, canModify: false, canView: true },
-        },
+        { name:es?.name||'Demande Employé', description:es?.description||'', order:0, role:'employe', assignedPost:'', assignedPostName:'Tous les employés', assignedTo:null, assignedToName:'', assignedRole:'employe', form:es?.form||{fields:[]}, checklist:[], status:'pending', claims:{canValidate:false,canReject:false,canModify:true,canView:true} },
+        { name:'Approbation automatique', description:'Approuvé automatiquement', order:1, role:'system', assignedPost:'AUTO', assignedPostName:'Automatique', assignedTo:null, assignedToName:'', assignedRole:'', form:{fields:[]}, checklist:[], status:'pending', claims:{canValidate:true,canReject:true,canModify:false,canView:true} },
       ];
     } else {
-      const emptySlots = Object.entries(form.postMapping).filter(([_, v]) => !v);
-      if (emptySlots.length > 0) {
-        setMsg('ERREUR Assignez un poste à chaque étape de validation');
-        return;
-      }
-
-      steps = (template.steps || []).map((step, i) => {
+      const emptySlots = Object.entries(form.postMapping).filter(([_,v])=>!v);
+      if (emptySlots.length > 0) { setMsg('ERREUR Assignez un poste à chaque étape de validation'); return; }
+      steps = (template.steps||[]).map((step, i) => {
         const isEmploye = i === 0;
-
-        // ✅ FIX BUG 2 : récupérer l'objet poste complet via l'_id stocké dans postMapping
-        const rawPostId  = isEmploye ? '' : (form.postMapping[i] || '');
-        const postObj    = allPosts.find(p => p._id === rawPostId);
-        const postName   = postObj?.name || rawPostId; // fallback sur l'id si objet introuvable
-
-        // ✅ BUG 2 FIX : normaliser le nom du poste (lowercase + trim) pour que la
-        // comparaison avec req.user.jobTitle dans completeStep/getMyTasks soit fiable
-        const normalizedPostName = postName.toLowerCase().trim();
-
-        return {
-          name:             step.name,
-          description:      step.description   || '',
-          order:            i,
-          role:             step.role           || (isEmploye ? 'employe' : 'validateur'),
-          assignedPost:     isEmploye ? '' : normalizedPostName,
-          assignedPostName: isEmploye ? 'Tous les employés' : postName,
-          assignedTo:       null,
-          assignedToName:   '',
-          assignedRole:     step.role           || '',
-          delai:            step.delai          || 0,
-          claims:           isEmploye
-            ? { canValidate: false, canReject: false, canModify: true, canView: true }
-            : (step.claims || { canValidate: true, canReject: true, canModify: false, canView: true }),
-          form:             step.form           || { fields: [] },
-          checklist:        (step.checklist || []).map(c => ({ ...c, checked: false })),
-          status:           'pending',
-        };
+        const rawPostId = isEmploye ? '' : (form.postMapping[i]||'');
+        const postObj   = allPosts.find(p => p._id === rawPostId);
+        const postName  = postObj?.name || rawPostId;
+        const norm      = postName.toLowerCase().trim();
+        return { name:step.name, description:step.description||'', order:i, role:step.role||(isEmploye?'employe':'validateur'), assignedPost:isEmploye?'':norm, assignedPostName:isEmploye?'Tous les employés':postName, assignedTo:null, assignedToName:'', assignedRole:step.role||'', delai:step.delai||0, claims:isEmploye?{canValidate:false,canReject:false,canModify:true,canView:true}:(step.claims||{canValidate:true,canReject:true,canModify:false,canView:true}), form:step.form||{fields:[]}, checklist:(step.checklist||[]).map(c=>({...c,checked:false})), status:'pending' };
       });
     }
-
     setSaving(true);
     try {
-      await workflowService.create({
-        name:        form.name,
-        description: form.description,
-        project:     form.projectId,
-        dueDate:     form.dueDate || null,
-        docType:     form.docType || '',
-        templateId,
-        // ✅ FIX BUG 1 : marquer ce workflow comme template pour qu'il
-        //   ne soit pas dupliqué quand un employé soumet une demande
-        isTemplate:  true,
-        steps,
-        nodes: [],
-        edges: [],
-      });
+      await workflowService.create({ name:form.name, description:form.description, project:form.projectId, dueDate:form.dueDate||null, docType:form.documentTypeId||'', templateId, isTemplate:true, steps, nodes:[], edges:[], allowedPosts, visibility:allowedPosts.length>0?'restricted':'global' });
       navigate('/dashboard/company/projects/' + form.projectId);
-    } catch (err) {
-      setMsg('ERREUR ' + (err.response?.data?.message || err.message));
-    } finally { setSaving(false); }
+    } catch (err) { setMsg('ERREUR ' + (err.response?.data?.message||err.message)); }
+    finally { setSaving(false); }
   };
 
   if (loading) return (
-    <div style={{ padding: '80px', textAlign: 'center', color: '#94a3b8' }}>
-      Chargement...
+    <div style={{ padding:'80px', textAlign:'center', color:'#94A3B8', display:'flex', alignItems:'center', justifyContent:'center', gap:'12px', fontSize:'15px', fontFamily:"'Inter',sans-serif" }}>
+      <IconLoader/> Chargement…
     </div>
   );
-  if (!template) return <div style={{ padding: '40px' }}>Template non trouvé</div>;
+  if (!template) return <div style={{ padding:'40px', color:'#64748B', fontFamily:"'Inter',sans-serif" }}>Template non trouvé</div>;
 
   const typeInfo = TYPE_LABELS[template.type] || TYPE_LABELS.confirmation_only;
-
-  const validationSteps = (template.steps || [])
-    .map((step, i) => ({ ...step, _globalIndex: i }))
-    .filter(step => step._globalIndex !== 0 && step.role !== 'employe');
-
+  const validationSteps = (template.steps||[]).map((s,i)=>({...s,_globalIndex:i})).filter(s=>s._globalIndex!==0&&s.role!=='employe');
   const employeStep = template.steps?.[0];
+  const isSuccess = msg.startsWith('SUCCESS');
+  const msgText = msg.replace(/^(ERREUR|SUCCESS)\s?/,'');
 
   return (
-    <div style={{ padding: '40px', maxWidth: '860px', margin: '0 auto' }}>
+    <>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div style={{ padding:'32px', maxWidth:'900px', margin:'0 auto', fontFamily:"'Inter',-apple-system,sans-serif" }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-        <button onClick={() => navigate(-1)}
-          style={{ background: '#f1f5f9', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}>
-          ← Retour
-        </button>
-        <div>
-          <h1 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
-            Nouveau workflow
-          </h1>
-          <span style={{ background: typeInfo.bg, color: typeInfo.color, padding: '2px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700 }}>
-            {template.name} — {typeInfo.label}
-          </span>
-        </div>
-      </div>
-
-      {/* Message */}
-      {msg && (
-        <div style={{ padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontWeight: 600, background: msg.startsWith('ERREUR') ? '#fee2e2' : '#dcfce7', color: msg.startsWith('ERREUR') ? '#991b1b' : '#166534' }}>
-          {msg.startsWith('ERREUR') ? '⚠️' : '✅'} {msg.replace(/^(ERREUR|SUCCESS)\s?/, '')}
-        </div>
-      )}
-
-      <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
-
-        {/* ── SECTION 1 — Infos générales ── */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#4f46e5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>1</div>
-            <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>Informations générales</h2>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            <div>
-              <label style={lbl}>Nom du workflow *</label>
-              <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} style={inp} placeholder="Ex: Demande achat Q1 2026" />
-            </div>
-            <div>
-              <label style={lbl}>Projet *</label>
-              <select value={form.projectId} onChange={e => setForm(p => ({ ...p, projectId: e.target.value }))} style={inp}>
-                <option value="">-- Choisir un projet --</option>
-                {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div>
-              <label style={lbl}>Description</label>
-              <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} style={inp} placeholder="Optionnel" />
-            </div>
-            <div>
-              <label style={lbl}>Échéance</label>
-              <input type="date" value={form.dueDate} onChange={e => setForm(p => ({ ...p, dueDate: e.target.value }))} style={inp} />
-            </div>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', gap:'14px', marginBottom:'28px', flexWrap:'wrap' }}>
+          <button onClick={()=>navigate(-1)} style={{ display:'flex', alignItems:'center', gap:'6px', background:'#F1F5F9', border:'1.5px solid #E2E8F0', padding:'8px 14px', borderRadius:'9px', cursor:'pointer', fontWeight:600, color:'#475569', fontSize:'13px', fontFamily:"'Inter',sans-serif" }}>
+            <IconArrowL/> Retour
+          </button>
+          <div>
+            <h1 style={{ margin:'0 0 5px', fontSize:'22px', fontWeight:900, color:'#0F172A', letterSpacing:'-0.3px' }}>Nouveau workflow</h1>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:'6px', background:typeInfo.bg, color:typeInfo.color, padding:'3px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:700, border:`1px solid ${typeInfo.color}25` }}>
+              {template.name} — {typeInfo.label}
+            </span>
           </div>
         </div>
 
-        {/* ── SECTION 2 — Circuit d'approbation (aperçu) ── */}
-        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '28px', marginBottom: '32px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#4f46e5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>2</div>
-            <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>Circuit d'approbation</h2>
+        {/* Toast */}
+        {msg && (
+          <div style={{ display:'flex', alignItems:'center', gap:'9px', padding:'12px 16px', borderRadius:'10px', marginBottom:'20px', fontWeight:600, fontSize:'14px', animation:'slideIn 0.3s ease', ...(isSuccess?{background:'#F0FDF4',border:'1.5px solid #BBF7D0',color:'#16A34A'}:{background:'#FEF2F2',border:'1.5px solid #FECACA',color:'#DC2626'}) }}>
+            {isSuccess?<IconCheck/>:<IconAlert/>} {msgText}
           </div>
+        )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '16px 20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            {(template.steps || []).map((step, i) => {
-              const roleCfg = ROLE_CONFIG[step.role] || ROLE_CONFIG.validateur;
-              return (
-                <React.Fragment key={i}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', background: roleCfg.bg, borderRadius: '10px', border: `1px solid ${roleCfg.color}30` }}>
-                    <span style={{ fontSize: '16px' }}>{roleCfg.icon}</span>
-                    <div>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: '12px', color: roleCfg.color }}>{step.name}</p>
-                      <p style={{ margin: 0, fontSize: '10px', color: '#94a3b8' }}>
-                        {step.role === 'employe' ? 'Tous les employés' : 'Poste à assigner'}
-                      </p>
-                    </div>
-                  </div>
-                  {i < template.steps.length - 1 && (
-                    <span style={{ color: '#cbd5e1', fontSize: '20px', fontWeight: 300 }}>→</span>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
+        <div style={{ background:'#fff', borderRadius:'16px', padding:'28px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1.5px solid #E2E8F0' }}>
 
-        {/* ── SECTION 3 — Assignation des postes ── */}
-        {template.type !== 'automatic' && validationSteps.length > 0 && (
-          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '28px', marginBottom: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#4f46e5', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px' }}>3</div>
-              <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>Assignation des postes</h2>
-            </div>
-            <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 20px 38px' }}>
-              Choisissez quel poste sera responsable de chaque étape de validation.
-              L'étape Employé est accessible à tous les employés automatiquement.
-            </p>
-
-            {/* Étape Employé — lecture seule */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 20px', background: '#e0f2fe', borderRadius: '12px', border: '1px solid #0891b230', marginBottom: '10px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#0891b2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px', flexShrink: 0 }}>
-                👤
+          {/* ── Section 1 : Infos générales ── */}
+          <SectionCard number="1" title="Informations générales">
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px' }}>
+              <div><Lbl required>Nom du workflow</Lbl><SInput value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Ex : Demande achat Q1 2026"/></div>
+              <div><Lbl required>Projet</Lbl>
+                <SSelect value={form.projectId} onChange={e=>setForm(p=>({...p,projectId:e.target.value}))}>
+                  <option value="">— Choisir un projet —</option>
+                  {projects.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}
+                </SSelect>
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
-                  {employeStep?.name || 'Demande Employé'}
-                </p>
-                <p style={{ margin: 0, fontSize: '12px', color: '#0891b2', fontWeight: 600 }}>
-                  Accessible à tous les employés — aucun poste à assigner
-                </p>
-              </div>
-              <span style={{ background: '#0891b2', color: '#fff', padding: '4px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
-                🔒 Fixe
-              </span>
             </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px' }}>
+              <div><Lbl>Description</Lbl><SInput value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))} placeholder="Optionnel"/></div>
+              <div><Lbl>Échéance</Lbl><SInput type="date" value={form.dueDate} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))}/></div>
+            </div>
+          </SectionCard>
 
-            {/* Étapes de validation — sélecteur de poste */}
-            {validationSteps.map((step) => {
-              const roleCfg  = ROLE_CONFIG[step.role] || ROLE_CONFIG.validateur;
-              const idx      = step._globalIndex;
-              // ✅ FIX BUG 2 : selected = _id du poste
-              const selected = form.postMapping[idx] || '';
-              // Pour affichage du nom du poste sélectionné
-              const selectedPost = allPosts.find(p => p._id === selected);
-
-              return (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px', background: '#f8fafc', borderRadius: '12px', border: `1px solid ${selected ? roleCfg.color + '40' : '#e2e8f0'}`, marginBottom: '10px', transition: 'border-color 0.15s' }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: roleCfg.bg, border: `2px solid ${roleCfg.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', flexShrink: 0 }}>
-                    {roleCfg.icon}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
-                      {step.name}
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ background: roleCfg.bg, color: roleCfg.color, padding: '1px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>
-                        {roleCfg.label}
-                      </span>
-                      {step.description && (
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>{step.description}</span>
-                      )}
-                      {step.delai > 0 && (
-                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          ⏱ {step.delai >= 1440 ? Math.round(step.delai / 1440) + 'j' : step.delai >= 60 ? Math.round(step.delai / 60) + 'h' : step.delai + 'min'}
-                        </span>
-                      )}
+          {/* ── Section 2 : Circuit d'approbation ── */}
+          <SectionCard number="2" title="Circuit d'approbation" subtitle="Aperçu des étapes définies dans le template.">
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', padding:'16px 20px', background:'#F8FAFC', borderRadius:'12px', border:'1.5px solid #E2E8F0' }}>
+              {(template.steps||[]).map((step, i) => {
+                const rc = ROLE_CONFIG[step.role] || ROLE_CONFIG.validateur;
+                return (
+                  <React.Fragment key={i}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'8px', padding:'9px 14px', background:rc.bg, borderRadius:'10px', border:`1.5px solid ${rc.color}25` }}>
+                      <div style={{ width:'22px', height:'22px', borderRadius:'6px', background:rc.color, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'10px', fontWeight:800, flexShrink:0 }}>{i+1}</div>
+                      <div>
+                        <p style={{ margin:0, fontWeight:800, fontSize:'12px', color:rc.color }}>{step.name}</p>
+                        <p style={{ margin:0, fontSize:'10px', color:'#94A3B8' }}>{step.role==='employe'?'Tous les employés':'Poste à assigner'}</p>
+                      </div>
                     </div>
-                  </div>
+                    {i < template.steps.length-1 && <span style={{color:'#CBD5E1',display:'flex'}}><IconArrowR/></span>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </SectionCard>
 
-                  <span style={{ color: '#cbd5e1', fontSize: '18px', flexShrink: 0 }}>→</span>
-
-                  {/* ✅ FIX BUG 2 : value = p._id, pas p.name */}
-                  <div style={{ minWidth: '260px' }}>
-                    <select
-                      value={selected}
-                      onChange={e => setForm(p => ({
-                        ...p,
-                        postMapping: { ...p.postMapping, [idx]: e.target.value },
-                      }))}
-                      style={{ ...inp, borderColor: selected ? roleCfg.color : '#e2e8f0', fontWeight: selected ? 600 : 400, color: selected ? '#0f172a' : '#94a3b8' }}
-                    >
-                      <option value="">-- Choisir un poste --</option>
-                      {allPosts.map(p => (
-                        <option key={p._id} value={p._id}>
-                          {p.name}{p.departmentName ? ' (' + p.departmentName + ')' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {selected && selectedPost && (
-                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#059669', fontWeight: 600 }}>
-                        ✓ {selectedPost.name}
-                      </p>
-                    )}
-                    {!selected && (
-                      <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#f59e0b', fontWeight: 600 }}>
-                        ⚠️ Poste requis pour cette étape
-                      </p>
-                    )}
-                  </div>
+          {/* ── Section 3 : Assignation postes ── */}
+          {template.type !== 'automatic' && validationSteps.length > 0 && (
+            <SectionCard number="3" title="Assignation des postes" subtitle="Choisissez quel poste sera responsable de chaque étape de validation.">
+              {/* Étape employé */}
+              <div style={{ display:'flex', alignItems:'center', gap:'14px', padding:'14px 18px', background:'#E0F2FE', borderRadius:'12px', border:'1.5px solid #7DD3FC', marginBottom:'10px' }}>
+                <div style={{ width:'36px', height:'36px', borderRadius:'10px', background:'#0891B2', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><IconUsers/></div>
+                <div style={{ flex:1 }}>
+                  <p style={{ margin:'0 0 2px', fontWeight:700, fontSize:'14px', color:'#0F172A' }}>{employeStep?.name||'Demande Employé'}</p>
+                  <p style={{ margin:0, fontSize:'12px', color:'#0891B2', fontWeight:600 }}>
+                    {(employeStep?.allowedPosts?.length>0) ? 'Réservé aux postes : '+employeStep.allowedPosts.join(', ') : 'Accessible à tous les employés'}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', background:'#0891B2', color:'#fff', padding:'3px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:700 }}>
+                  <IconLock/> Fixe
+                </span>
+              </div>
 
-        {/* Workflow automatique */}
-        {template.type === 'automatic' && (
-          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '28px', marginBottom: '32px' }}>
-            <div style={{ background: '#fef3c7', borderRadius: '12px', padding: '16px 20px', border: '1px solid #fde68a' }}>
-              <p style={{ margin: 0, fontWeight: 700, color: '#92400e', fontSize: '14px' }}>
-                ⚡ Workflow automatique — les demandes seront approuvées sans intervention humaine.
-              </p>
+              {validationSteps.map(step => {
+                const rc = ROLE_CONFIG[step.role] || ROLE_CONFIG.validateur;
+                const idx = step._globalIndex;
+                const selected = form.postMapping[idx] || '';
+                const selectedPost = allPosts.find(p => p._id === selected);
+                return (
+                  <div key={idx} style={{ display:'flex', alignItems:'center', gap:'14px', padding:'16px 18px', background:'#F8FAFC', borderRadius:'12px', border:`1.5px solid ${selected?rc.color+'40':'#E2E8F0'}`, marginBottom:'10px', transition:'border-color 0.15s' }}>
+                    <div style={{ width:'36px', height:'36px', borderRadius:'10px', background:rc.bg, border:`1.5px solid ${rc.color}40`, display:'flex', alignItems:'center', justifyContent:'center', color:rc.color, flexShrink:0, fontWeight:800, fontSize:'13px' }}>
+                      {idx+1}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ margin:'0 0 4px', fontWeight:800, fontSize:'14px', color:'#0F172A' }}>{step.name}</p>
+                      <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
+                        <span style={{ background:rc.bg, color:rc.color, padding:'2px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:700, border:`1px solid ${rc.color}25` }}>{rc.label}</span>
+                        {step.description && <span style={{ fontSize:'11px', color:'#94A3B8' }}>{step.description}</span>}
+                        {step.delai>0 && <span style={{ fontSize:'11px', color:'#94A3B8' }}>⏱ {step.delai>=1440?Math.round(step.delai/1440)+'j':step.delai>=60?Math.round(step.delai/60)+'h':step.delai+'min'}</span>}
+                      </div>
+                    </div>
+                    <span style={{ color:'#CBD5E1', display:'flex', flexShrink:0 }}><IconArrowR/></span>
+                    <div style={{ minWidth:'260px' }}>
+                      <SSelect value={selected} onChange={e=>setForm(p=>({...p,postMapping:{...p.postMapping,[idx]:e.target.value}}))}>
+                        <option value="">— Choisir un poste —</option>
+                        {allPosts.map(p=><option key={p._id} value={p._id}>{p.name}{p.departmentName?` (${p.departmentName})`:''}</option>)}
+                      </SSelect>
+                      {selected && selectedPost
+                        ? <p style={{ margin:'5px 0 0', fontSize:'12px', color:'#16A34A', fontWeight:600, display:'flex', alignItems:'center', gap:'4px' }}><IconCheck/> {selectedPost.name}</p>
+                        : <p style={{ margin:'5px 0 0', fontSize:'12px', color:'#D97706', fontWeight:600, display:'flex', alignItems:'center', gap:'4px' }}><IconAlert/> Poste requis</p>
+                      }
+                    </div>
+                  </div>
+                );
+              })}
+            </SectionCard>
+          )}
+
+          {/* Automatic */}
+          {template.type === 'automatic' && (
+            <SectionCard number="3" title="Mode automatique">
+              <div style={{ padding:'16px 18px', background:'#FFFBEB', borderRadius:'12px', border:'1.5px solid #FDE68A' }}>
+                <p style={{ margin:0, fontWeight:700, color:'#92400E', fontSize:'14px' }}>
+                  ⚡ Les demandes seront approuvées automatiquement sans intervention humaine.
+                </p>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* ── Section 4 : Accès employés ── */}
+          <SectionCard number="4" title="Accès employés" subtitle="Définissez quels employés peuvent soumettre ce type de demande." color="#7C3AED">
+            <div style={{ display:'flex', gap:'12px', marginBottom:'16px' }}>
+              {[
+                { value:'global',     label:'Tous les employés',    desc:'Visible par tous',                         icon:<IconGlobe/>,  color:'#16A34A', bg:'#F0FDF4', border:'#BBF7D0' },
+                { value:'restricted', label:'Postes spécifiques',   desc:'Visible par les postes sélectionnés',      icon:<IconLock/>,   color:'#7C3AED', bg:'#F5F3FF', border:'#DDD6FE' },
+              ].map(opt => {
+                const isSelected = opt.value==='global' ? allowedPosts.length===0 : allowedPosts.length>0;
+                return (
+                  <div key={opt.value} onClick={()=>{ if(opt.value==='global') setAllowedPosts([]); }}
+                    style={{ flex:1, padding:'14px 16px', borderRadius:'12px', cursor:'pointer', border:`1.5px solid ${isSelected?opt.border:'#E2E8F0'}`, background:isSelected?opt.bg:'#F8FAFC', transition:'all 0.15s' }}>
+                    <p style={{ margin:'0 0 4px', fontWeight:700, fontSize:'14px', color:isSelected?opt.color:'#374151', display:'flex', alignItems:'center', gap:'6px' }}>
+                      <span style={{color:isSelected?opt.color:'#94A3B8'}}>{opt.icon}</span>{opt.label}
+                    </p>
+                    <p style={{ margin:0, fontSize:'12px', color:'#64748B' }}>{opt.desc}</p>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        )}
 
-        {/* Bouton créer */}
-        <button onClick={handleSubmit} disabled={saving}
-          style={{ width: '100%', padding: '14px', borderRadius: '10px', background: saving ? '#e2e8f0' : '#4f46e5', color: saving ? '#94a3b8' : '#fff', border: 'none', fontWeight: 700, fontSize: '15px', cursor: saving ? 'not-allowed' : 'pointer', transition: 'background 0.15s ease' }}>
-          {saving ? 'Création en cours...' : '✓ Créer le workflow'}
-        </button>
+            <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'10px', padding:'12px 14px', background:'#F8FAFC', borderRadius:'10px', border:'1.5px solid #E2E8F0', minHeight:'44px', alignItems:'center' }}>
+              {allowedPosts.length === 0
+                ? <span style={{ fontSize:'13px', color:'#94A3B8', display:'flex', alignItems:'center', gap:'5px' }}><IconGlobe/> Tous les employés peuvent soumettre</span>
+                : allowedPosts.map(p => (
+                    <span key={p} style={{ display:'inline-flex', alignItems:'center', gap:'5px', background:'#F5F3FF', color:'#7C3AED', padding:'4px 10px', borderRadius:'20px', fontSize:'12px', fontWeight:700, border:'1.5px solid #DDD6FE' }}>
+                      {p}
+                      <button onClick={()=>setAllowedPosts(prev=>prev.filter(x=>x!==p))}
+                        style={{ background:'#EDE9FE', border:'none', color:'#7C3AED', cursor:'pointer', width:'16px', height:'16px', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', padding:0, flexShrink:0 }}>
+                        <IconX/>
+                      </button>
+                    </span>
+                  ))
+              }
+            </div>
+
+            <SSelect value="" onChange={e=>{ const v=e.target.value; if(v&&!allowedPosts.includes(v)) setAllowedPosts(prev=>[...prev,v]); }}>
+              <option value="">+ Restreindre à un poste spécifique…</option>
+              {allPosts.filter(p=>!allowedPosts.includes(p.name)).map(p=><option key={p._id} value={p.name}>{p.name}{p.departmentName?` (${p.departmentName})`:''}</option>)}
+            </SSelect>
+
+            {allowedPosts.length > 0 && (
+              <div style={{ marginTop:'12px', padding:'12px 14px', background:'#FFFBEB', borderRadius:'9px', border:'1.5px solid #FDE68A', display:'flex', alignItems:'center', gap:'8px' }}>
+                <IconAlert/>
+                <p style={{ margin:0, fontSize:'12px', color:'#92400E', fontWeight:600 }}>
+                  Seuls les employés avec les postes sélectionnés verront ce workflow dans leur liste de demandes.
+                </p>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* Submit */}
+          <button onClick={handleSubmit} disabled={saving}
+            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'14px', borderRadius:'10px', background:saving?'#E2E8F0':B, color:saving?'#94A3B8':'#fff', border:'none', fontWeight:700, fontSize:'15px', cursor:saving?'not-allowed':'pointer', fontFamily:"'Inter',sans-serif", boxShadow:saving?'none':`0 4px 16px ${B}40`, transition:'all 0.15s' }}>
+            {saving ? <><IconLoader/> Création en cours…</> : <><IconCheck/> Créer le workflow</>}
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

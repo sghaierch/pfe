@@ -71,9 +71,11 @@ exports.createTemplate = async (req, res) => {
           type:       f.type       || 'text',
           required:   f.required   || false,
           readOnly:   f.readOnly   || false,
-          autoSource: f.autoSource || '',
-          options:    f.options    || [],
-          columns:    f.columns    || [],
+          autoSource:       f.autoSource       || '',
+          options:          f.options          || [],
+          columns:          f.columns          || [],
+          inheritTableFrom: f.inheritTableFrom || '',   // ← AJOUTER
+          extraColumns:     f.extraColumns     || [],   // ← AJOUTER
         })),
       },
     }));
@@ -127,9 +129,11 @@ exports.updateTemplate = async (req, res) => {
               type:       f.type       || 'text',
               required:   f.required   || false,
               readOnly:   f.readOnly   || false,
-              autoSource: f.autoSource || '',
-              options:    f.options    || [],
-              columns:    f.columns    || [],
+              autoSource:       f.autoSource       || '',
+              options:          f.options          || [],
+              columns:          f.columns          || [],
+              inheritTableFrom: f.inheritTableFrom || '',   // ← AJOUTER
+              extraColumns:     f.extraColumns     || [],   // ← AJOUTER
             })),
           },
         }))

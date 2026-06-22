@@ -165,6 +165,8 @@ const workflowService = {
     return res.data;
   },
 
+  moveToProject: async (id, projectId) =>
+  (await API.patch(`/workflows/${id}/move-project`, { projectId })).data,
 };
 
 export default workflowService;

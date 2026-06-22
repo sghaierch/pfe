@@ -9,12 +9,6 @@ const tableColumnSchema = new mongoose.Schema({
   width:    { type: String, default: 'auto' },
 }, { _id: false });
 
-// ── Schéma d'une ligne de tableau (données saisies par l'employé) ─────────────
-const tableRowSchema = new mongoose.Schema({
-  // Clé dynamique → stocké comme objet clé/valeur
-  // Ex : { col_article: "PC HP", col_quantite: 2 }
-}, { strict: false, _id: false });
-
 const stepSchema = new mongoose.Schema({
   name:             { type: String, required: true },
   description:      { type: String },
@@ -25,20 +19,25 @@ const stepSchema = new mongoose.Schema({
   assignedPost:     { type: String },
   assignedPostName: { type: String, default: '' },
   delai:            { type: String, default: '' },
+  documentType: {type: mongoose.Schema.Types.ObjectId, ref: 'DocumentType'},
+
+  // ✅ NOUVEAU — distingue clairement l'étape remplie par l'employé des étapes de validation
+  // step.isEmployeeStep = true  → formulaire affiché à l'employé dans EmployeeSubmitRequest
+  // step.isEmployeeStep = false → étape assignée à un validateur / confirmateur
+  isEmployeeStep: { type: Boolean, default: false },
 
   form: {
     fields: [{
-      id:       { type: String, required: true },
-      label:    { type: String, required: true },
-      // ✅ NOUVEAU : 'table', 'auto_number', 'auto_user', 'auto_status' ajoutés
+      id:         { type: String, required: true },
+      label:      { type: String, required: true },
       type: {
         type: String,
         enum: [
           'text', 'number', 'date', 'select', 'file', 'checkbox', 'textarea', 'signature',
-          'table',        // ← TABLEAU DYNAMIQUE (Article / Quantité / ...)
-          'auto_number',  // ← Numéro de document auto-généré (lecture seule)
-          'auto_user',    // ← Nom de l'utilisateur connecté (lecture seule)
-          'auto_status',  // ← Statut du document (lecture seule, géré par le système)
+          'table',
+          'auto_number',
+          'auto_user',
+          'auto_status',
         ],
         default: 'text',
       },
@@ -46,18 +45,13 @@ const stepSchema = new mongoose.Schema({
       options:    [{ type: String }],
       readOnly:   { type: Boolean, default: false },
       autoSource: { type: String, default: '' },
-
-      // ✅ Pour type='table' : définition des colonnes
-      columns: [tableColumnSchema],
-
-   // ✅ Valeur unique du champ
-    // text => string
-    // checkbox => boolean
-    // table => array
-    data: {
-      type: mongoose.Schema.Types.Mixed,
-      default: null,
-    },
+      columns:    [tableColumnSchema],
+      inheritTableFrom: { type: String, default: '' },  // ✅ AJOUTER
+      extraColumns:     [tableColumnSchema],             // ✅ AJOUTER
+      data: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+      },
     }],
   },
 
@@ -94,12 +88,26 @@ const stepSchema = new mongoose.Schema({
 
 const workflowSchema = new mongoose.Schema({
   name:        { type: String, required: true, trim: true },
-  isTemplate:  {  type: Boolean,default: false,},
   description: { type: String },
-  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: false },  createdBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  docType: { type: String, enum: ['', 'DA', 'DAC', 'BS', 'DF', 'BR'], default: '' },
-  businessDoc: { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessDocument' },
-  rootDoc:     { type: mongoose.Schema.Types.ObjectId, ref: 'BusinessDocument' },
+  docNumber: { type: String, default: '' },
+
+  // ✅ isTemplate:true  → workflow créé par l'admin, visible dans la liste employé
+  // ✅ isTemplate:false → instance réelle créée quand un employé soumet une demande
+  isTemplate: { type: Boolean, default: false },
+
+  // ✅ NOUVEAU — référence au template d'origine (traçabilité)
+  // Rempli uniquement sur les instances (isTemplate:false)
+  templateRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Workflow', default: null },
+
+  project:     { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: false },
+  createdBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  docType: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'DocumentType',
+  default: null,
+},
+
   status: {
     type: String,
     enum: ['draft', 'active', 'completed', 'archived', 'rejected'],

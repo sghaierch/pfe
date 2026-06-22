@@ -6,8 +6,6 @@ const mongoose         = require("mongoose");
 const cors             = require("cors");
 const authRoutes       = require('./routes/authRoutes');
 const userRoutes       = require("./routes/userRoutes");
-const roleRoutes       = require('./routes/roleRoutes');
-const permissionRoutes = require('./routes/permissionRoutes');
 const planRoutes       = require("./routes/planRoutes");
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const tenantRoutes     = require("./routes/tenantRoutes");
@@ -17,9 +15,7 @@ const tenantUserRoutes = require('./routes/tenantUserRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const templateRoutes   = require('./routes/templateRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-
-
-
+const documentTypeRoutes = require('./routes/documentTypeRoutes');
 
 const app = express();
 const fs   = require('fs');
@@ -33,13 +29,12 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use("/api/subscriptions/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/auth',               authRoutes);
 app.use("/users",              userRoutes);
-app.use('/roles',              roleRoutes);
-app.use('/permissions',        permissionRoutes);
 app.use("/plans",              planRoutes);
 app.use('/subscriptions',      subscriptionRoutes);
 app.use("/tenants",            tenantRoutes);
@@ -50,6 +45,7 @@ app.use('/departments',        departmentRoutes);
 app.use('/workflow-templates', templateRoutes);
 app.use('/notifications',      notificationRoutes);
 app.use('/ai',                 aiRoutes);
+app.use('/document-types', documentTypeRoutes);
 
 const cron = require('node-cron');
 const { sendReminders } = require('./services/notificationService');

@@ -22,7 +22,7 @@ const subscriptionSchema = new mongoose.Schema({
   rejectedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   rejectedAt:      { type: Date },
   rejectionReason: { type: String },
-
+  stripePaymentIntentId: { type: String,index: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Subscription', subscriptionSchema);

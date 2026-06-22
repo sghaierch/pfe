@@ -31,49 +31,46 @@ exports.getPlanById = async (req, res) => {
   }
 };
 
-// POST créer un plan
 exports.createPlan = async (req, res) => {
   try {
-    const { name, price, billingCycle, description, features,
-            maxUsers, maxWorkflows, isActive, isPopular, color, order } = req.body;
-
-    // Si isPopular = true → retirer isPopular des autres
-    if (isPopular) {
+    if (req.body.isPopular) {
       await Plan.updateMany({}, { isPopular: false });
     }
-
-    const plan = await Plan.create({
-      name, price, billingCycle, description,
-      features: features || [],
-      maxUsers, maxWorkflows, isActive,
-      isPopular, color, order
-    });
-
+    const plan = await Plan.create(req.body);
     res.status(201).json({ status: "success", data: { plan } });
   } catch (err) {
+    // ✅ Erreur nom dupliqué
+    if (err.code === 11000) {
+      return res.status(400).json({
+        status: "fail",
+        message: `Un plan avec le nom "${req.body.name}" existe déjà.`
+      });
+    }
     res.status(400).json({ status: "fail", message: err.message });
   }
 };
 
-// PATCH modifier un plan
 exports.updatePlan = async (req, res) => {
   try {
-    // Si isPopular → retirer des autres
     if (req.body.isPopular) {
       await Plan.updateMany({ _id: { $ne: req.params.id } }, { isPopular: false });
     }
-
     const plan = await Plan.findByIdAndUpdate(req.params.id, req.body, {
       new: true, runValidators: true
     });
-
     if (!plan) return res.status(404).json({ status: "fail", message: "Plan non trouvé" });
     res.status(200).json({ status: "success", data: { plan } });
   } catch (err) {
+    // ✅ Erreur nom dupliqué
+    if (err.code === 11000) {
+      return res.status(400).json({
+        status: "fail",
+        message: `Un plan avec le nom "${req.body.name}" existe déjà.`
+      });
+    }
     res.status(400).json({ status: "fail", message: err.message });
   }
 };
-
 // PATCH toggle actif/inactif
 exports.togglePlanStatus = async (req, res) => {
   try {

@@ -39,14 +39,17 @@ const userSchema = new mongoose.Schema(
       },
     },
     role: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Role",
-      required: true
+      type: String,
+      default: 'superadmin',
+      enum: ['superadmin', 'admin', 'employee'],
     },
+//hethi tetna7a normalement
     department: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department"
     },
+
+    
     jobTitle: String,
     phoneNumber: String,
     age: Number,

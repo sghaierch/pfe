@@ -4,98 +4,23 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import workflowService from '../../services/workflowService';
 import projectService  from '../../services/projectService';
-
-// ─── Styles partagés ──────────────────────────────────────────────────────────
+import API from '../../services/api';
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const S = {
-  page: {
-    minHeight: '100vh',
-    background: '#f0f2f7',
-    fontFamily: "'Inter', -apple-system, sans-serif",
-  },
-  wrap: {
-    maxWidth: '720px',
-    margin: '0 auto',
-    padding: '32px 24px 60px',
-  },
-  card: {
-    background: '#ffffff',
-    borderRadius: '16px',
-    border: '1px solid #e8eaf0',
-    overflow: 'hidden',
-    marginBottom: '16px',
-  },
-  cardHead: (color = '#4f46e5') => ({
-    padding: '16px 24px',
-    borderBottom: '1px solid #f0f2f7',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  }),
-  cardBody: {
-    padding: '24px',
-  },
-  label: {
-    display: 'block',
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: '6px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-  },
-  input: {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: '10px',
-    border: '1.5px solid #e5e7eb',
-    fontSize: '14px',
-    color: '#111827',
-    background: '#fff',
-    boxSizing: 'border-box',
-    outline: 'none',
-    transition: 'border-color 0.15s',
-    fontFamily: 'inherit',
-  },
-  inputRO: {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: '10px',
-    border: '1.5px solid #f3f4f6',
-    fontSize: '14px',
-    color: '#9ca3af',
-    background: '#f9fafb',
-    boxSizing: 'border-box',
-    outline: 'none',
-    fontFamily: 'inherit',
-    cursor: 'not-allowed',
-  },
-  fieldWrap: {
-    marginBottom: '18px',
-  },
-  badge: (bg, color) => ({
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '3px 10px',
-    borderRadius: '20px',
-    fontSize: '11px',
-    fontWeight: '700',
-    background: bg,
-    color: color,
-  }),
+  page: { minHeight: '100vh', background: '#F1F5F9', fontFamily: "'Inter',-apple-system,sans-serif" },
+  wrap: { maxWidth: '720px', margin: '0 auto', padding: '32px 24px 60px' },
+  card: { background: '#ffffff', borderRadius: '16px', border: '1.5px solid #E2E8F0', overflow: 'hidden', marginBottom: '16px' },
+  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  input: { width: '100%', padding: '11px 14px', borderRadius: '10px', border: '1.5px solid #E2E8F0', fontSize: '14px', color: '#0F172A', background: '#fff', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s', fontFamily: 'inherit' },
+  inputRO: { width: '100%', padding: '11px 14px', borderRadius: '10px', border: '1.5px solid #f3f4f6', fontSize: '14px', color: '#94A3B8', background: '#f9fafb', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', cursor: 'not-allowed' },
+  fieldWrap: { marginBottom: '18px' },
+  badge: (bg, color) => ({ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', background: bg, color: color }),
   submitBtn: (disabled) => ({
-    width: '100%',
-    padding: '16px',
-    borderRadius: '12px',
-    border: 'none',
-    background: disabled ? '#e5e7eb' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-    color: disabled ? '#9ca3af' : '#fff',
-    fontSize: '15px',
-    fontWeight: '700',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    letterSpacing: '0.02em',
-    boxShadow: disabled ? 'none' : '0 4px 20px rgba(79,70,229,0.35)',
-    transition: 'all 0.2s',
-    marginTop: '8px',
+    width: '100%', padding: '16px', borderRadius: '12px', border: 'none',
+    background: disabled ? '#E2E8F0' : '#2563EB',
+    color: disabled ? '#9ca3af' : '#fff', fontSize: '15px', fontWeight: '700',
+    cursor: disabled ? 'not-allowed' : 'pointer', letterSpacing: '0.02em',
+    boxShadow: disabled ? 'none' : '0 4px 16px rgba(37,99,235,0.4)', transition: 'all 0.2s', marginTop: '8px',
   }),
 };
 
@@ -104,42 +29,34 @@ const SignatureCanvas = ({ value, onChange }) => {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#111827';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#111827'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   }, []);
-
   const getPos = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
     return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
   };
-
   const start = (e) => { e.preventDefault(); isDrawing.current = true; const p = getPos(e, canvasRef.current); const ctx = canvasRef.current.getContext('2d'); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
   const draw  = (e) => { e.preventDefault(); if (!isDrawing.current) return; const p = getPos(e, canvasRef.current); const ctx = canvasRef.current.getContext('2d'); ctx.lineTo(p.x, p.y); ctx.stroke(); setIsEmpty(false); };
   const stop  = (e) => { e.preventDefault(); if (!isDrawing.current) return; isDrawing.current = false; onChange(canvasRef.current.toDataURL()); };
   const clear = () => { const c = canvasRef.current; c.getContext('2d').clearRect(0, 0, c.width, c.height); setIsEmpty(true); onChange(''); };
-
   return (
-    <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden', background: '#fafafa' }}>
-      <canvas
-        ref={canvasRef} width={600} height={130}
+    <div style={{ border: '1.5px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden', background: '#fafafa' }}>
+      <canvas ref={canvasRef} width={600} height={130}
         onMouseDown={start} onMouseMove={draw} onMouseUp={stop} onMouseLeave={stop}
         onTouchStart={start} onTouchMove={draw} onTouchEnd={stop}
-        style={{ display: 'block', width: '100%', cursor: 'crosshair', touchAction: 'none' }}
-      />
+        style={{ display: 'block', width: '100%', cursor: 'crosshair', touchAction: 'none' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderTop: '1px solid #f0f2f7', background: '#fff' }}>
-        <span style={{ fontSize: '12px', color: '#9ca3af' }}>{isEmpty ? 'Signez dans la zone ci-dessus' : '✓ Signature enregistrée'}</span>
-        <button type="button" onClick={clear} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: '#ef4444', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>Effacer</button>
+        <span style={{ fontSize: '12px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          {isEmpty ? 'Signez dans la zone ci-dessus' : <><i className="ri-check-line" style={{ color: '#059669' }}></i> Signature enregistrée</>}
+        </span>
+        <button type="button" onClick={clear} style={{ padding: '4px 12px', borderRadius: '6px', border: '1.5px solid #E2E8F0', background: '#fff', color: '#ef4444', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>Effacer</button>
       </div>
     </div>
   );
@@ -149,85 +66,53 @@ const SignatureCanvas = ({ value, onChange }) => {
 const TableField = ({ field, value, onChange }) => {
   const cols = field.columns || [];
   const rows = Array.isArray(value) ? value : [];
-
   useEffect(() => {
     if (rows.length === 0 && cols.length > 0) {
       const empty = { _key: uuidv4() };
-      cols.forEach(c => { empty[c.id] = c.type === 'number' ? '' : ''; });
+      cols.forEach(c => { empty[c.id] = ''; });
       onChange([empty]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const addRow = () => {
-    const empty = { _key: uuidv4() };
-    cols.forEach(c => { empty[c.id] = ''; });
-    onChange([...rows, empty]);
-  };
-
-  const updateCell = (key, colId, val) =>
-    onChange(rows.map(r => r._key === key ? { ...r, [colId]: val } : r));
-
-  const removeRow = (key) => {
-    if (rows.length <= 1) return;
-    onChange(rows.filter(r => r._key !== key));
-  };
-
+  const addRow    = () => { const empty = { _key: uuidv4() }; cols.forEach(c => { empty[c.id] = ''; }); onChange([...rows, empty]); };
+  const updateCell = (key, colId, val) => onChange(rows.map(r => r._key === key ? { ...r, [colId]: val } : r));
+  const removeRow  = (key) => { if (rows.length <= 1) return; onChange(rows.filter(r => r._key !== key)); };
   if (cols.length === 0) return (
-    <div style={{ padding: '12px 14px', background: '#fffbeb', borderRadius: '8px', color: '#92400e', fontSize: '13px', border: '1px solid #fde68a' }}>
-      ⚠️ Aucune colonne configurée pour ce tableau.
+    <div style={{ padding: '12px 14px', background: '#fffbeb', borderRadius: '8px', color: '#92400e', fontSize: '13px', border: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <i className="ri-error-warning-line"></i> Aucune colonne configurée pour ce tableau.
     </div>
   );
-
-  const colWidths = cols.map(c => c.type === 'number' ? '100px' : '1fr').join(' ');
-  const gridCols  = colWidths + ' 36px';
-
+  const gridCols = cols.map(c => c.type === 'number' ? '100px' : '1fr').join(' ') + ' 36px';
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '8px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px 8px 0 0', border: '1.5px solid #e5e7eb', borderBottom: 'none' }}>
-        {cols.map(col => (
-          <span key={col.id} style={{ fontSize: '11px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {col.label}{col.required ? ' *' : ''}
-          </span>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '8px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px 8px 0 0', border: '1.5px solid #E2E8F0', borderBottom: 'none' }}>
+        {cols.map(col => <span key={col.id} style={{ fontSize: '11px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{col.label}{col.required ? ' *' : ''}</span>)}
         <span />
       </div>
       {rows.map((row, ri) => (
-        <div key={row._key} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '8px', padding: '8px 12px', border: '1.5px solid #e5e7eb', borderTop: ri === 0 ? '1px solid #e5e7eb' : 'none', background: ri % 2 === 0 ? '#fff' : '#fafafa', borderRadius: ri === rows.length - 1 ? '0 0 8px 8px' : '0', alignItems: 'center' }}>
+        <div key={row._key} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '8px', padding: '8px 12px', border: '1.5px solid #E2E8F0', borderTop: ri === 0 ? '1px solid #e5e7eb' : 'none', background: ri % 2 === 0 ? '#fff' : '#fafafa', borderRadius: ri === rows.length - 1 ? '0 0 8px 8px' : '0', alignItems: 'center' }}>
           {cols.map(col => (
-            <input
-              key={col.id}
-              type={col.type === 'number' ? 'number' : 'text'}
-              min={col.type === 'number' ? '0' : undefined}
+            <input key={col.id} type={col.type === 'number' ? 'number' : 'text'} min={col.type === 'number' ? '0' : undefined}
               value={row[col.id] ?? ''}
               onChange={e => updateCell(row._key, col.id, col.type === 'number' ? (e.target.value === '' ? '' : parseFloat(e.target.value)) : e.target.value)}
-              placeholder={col.label}
-              style={{ ...S.input, padding: '8px 10px' }}
-            />
+              placeholder={col.label} style={{ ...S.input, padding: '8px 10px' }} />
           ))}
-          <button
-            type="button"
-            onClick={() => removeRow(row._key)}
-            disabled={rows.length === 1}
-            style={{ width: '32px', height: '34px', borderRadius: '6px', border: 'none', background: rows.length === 1 ? '#f3f4f6' : '#fee2e2', color: rows.length === 1 ? '#d1d5db' : '#ef4444', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '16px' }}
-          >×</button>
+          <button type="button" onClick={() => removeRow(row._key)} disabled={rows.length === 1}
+            style={{ width: '32px', height: '34px', borderRadius: '6px', border: 'none', background: rows.length === 1 ? '#f3f4f6' : '#fee2e2', color: rows.length === 1 ? '#d1d5db' : '#ef4444', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <i className="ri-close-line"></i>
+          </button>
         </div>
       ))}
-      <button
-        type="button"
-        onClick={addRow}
-        style={{ marginTop: '8px', width: '100%', padding: '9px', border: '1.5px dashed #c7d2fe', borderRadius: '8px', background: '#fff', color: '#4f46e5', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
-      >
-        + Ajouter une ligne
+      <button type="button" onClick={addRow} style={{ marginTop: '8px', width: '100%', padding: '9px', border: '1.5px dashed #bfdbfe', borderRadius: '8px', background: '#fff', color: '#2563eb', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+        <i className="ri-add-line"></i> Ajouter une ligne
       </button>
     </div>
   );
 };
 
-// ─── Rendu d'un champ générique ───────────────────────────────────────────────
+// ─── FieldRenderer ────────────────────────────────────────────────────────────
 const FieldRenderer = ({ field, value, onChange, user }) => {
   const isAuto = ['auto_number', 'auto_user', 'auto_status'].includes(field.type) || field.readOnly;
-
   if (isAuto) {
     let display = value || '';
     if (field.type === 'auto_number') display = '(Généré automatiquement)';
@@ -235,31 +120,23 @@ const FieldRenderer = ({ field, value, onChange, user }) => {
     else if (field.type === 'auto_status') display = 'En cours';
     return (
       <div style={S.fieldWrap}>
-        <label style={S.label}>
-          {field.label}
-          <span style={{ ...S.badge('#e0f2fe', '#0369a1'), marginLeft: '6px', fontSize: '10px' }}>AUTO</span>
-        </label>
+        <label style={S.label}>{field.label}<span style={{ ...S.badge('#e0f2fe', '#0369a1'), marginLeft: '6px', fontSize: '10px' }}>AUTO</span></label>
         <input type="text" value={display} readOnly style={S.inputRO} />
       </div>
     );
   }
-
   if (field.type === 'signature') return (
     <div style={S.fieldWrap}>
       <label style={S.label}>{field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}</label>
       <SignatureCanvas value={value || ''} onChange={onChange} />
     </div>
   );
-
   if (field.type === 'table') return (
     <div style={{ ...S.fieldWrap, marginBottom: '24px' }}>
-      <label style={S.label}>
-        {field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}
-      </label>
+      <label style={S.label}>{field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}</label>
       <TableField field={field} value={value} onChange={onChange} />
     </div>
   );
-
   if (field.type === 'select') return (
     <div style={S.fieldWrap}>
       <label style={S.label}>{field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}</label>
@@ -269,44 +146,40 @@ const FieldRenderer = ({ field, value, onChange, user }) => {
       </select>
     </div>
   );
-
   if (field.type === 'textarea') return (
     <div style={S.fieldWrap}>
       <label style={S.label}>{field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}</label>
-      <textarea
-        value={value || ''} onChange={e => onChange(e.target.value)} rows={3}
-        placeholder={field.label}
-        style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
-      />
+      <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={3} placeholder={field.label}
+        style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }} />
     </div>
   );
-
   if (field.type === 'checkbox') return (
-    <div style={{ ...S.fieldWrap }}>
+    <div style={S.fieldWrap}>
       <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-        <input
-          type="checkbox" checked={Boolean(value)} onChange={e => onChange(e.target.checked)}
-          style={{ width: '18px', height: '18px', accentColor: '#4f46e5', cursor: 'pointer' }}
-        />
-        <span style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+        <input type="checkbox" checked={Boolean(value)} onChange={e => onChange(e.target.checked)}
+          style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }} />
+        <span style={{ fontSize: '14px', fontWeight: '500', color: '#0F172A' }}>
           {field.label}{field.required && <span style={{ color: '#ef4444' }}> *</span>}
         </span>
       </label>
     </div>
   );
-
   return (
     <div style={S.fieldWrap}>
       <label style={S.label}>{field.label}{field.required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}</label>
-      <input
-        type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
+      <input type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'}
         min={field.type === 'number' ? '0' : undefined}
-        value={value || ''} onChange={e => onChange(e.target.value)}
-        placeholder={field.label}
-        style={S.input}
-      />
+        value={value || ''} onChange={e => onChange(e.target.value)} placeholder={field.label} style={S.input} />
     </div>
   );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER : trouve l'index de l'étape employé dans les steps du template
+// ─────────────────────────────────────────────────────────────────────────────
+const findEmployeeStepIndex = (steps = []) => {
+  const idx = steps.findIndex(s => s.isEmployeeStep === true);
+  return idx !== -1 ? idx : 0;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -315,84 +188,115 @@ const FieldRenderer = ({ field, value, onChange, user }) => {
 const EmployeeSubmitRequest = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // ✅ FIX BUG 1 : le paramètre s'appelle "template" dans l'URL
-  //   (/submit-request?template=<workflow_id_admin>)
   const templateId = searchParams.get('template');
   const { user } = useAuth();
 
-  const [workflow,  setWorkflow]  = useState(null);
-  const [projects,  setProjects]  = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [saving,    setSaving]    = useState(false);
-  const [msg,       setMsg]       = useState('');
-  const [success,   setSuccess]   = useState(false);
-
-  const [projectId, setProjectId] = useState('');
-  const [dueDate,   setDueDate]   = useState('');
+  const [workflow,    setWorkflow]    = useState(null);
+  const [projects,    setProjects]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [msg,         setMsg]         = useState('');
+  const [success,     setSuccess]     = useState(false);
+  const [,            setProjectId]   = useState('');
+  const [dueDate]                     = useState('');
   const [fieldValues, setFieldValues] = useState({});
 
-  // ── Chargement ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!templateId) { setMsg('Aucun workflow sélectionné.'); setLoading(false); return; }
+  // ── États upload ──────────────────────────────────────────────────────────
+  const [attachments, setAttachments] = useState([]);
+  const [uploading,   setUploading]   = useState(false);
+  const fileInputRef = useRef(null);
+  const [docType, setDocType] = useState(null);
+ // ── Chargement du template ────────────────────────────────────────────────
+useEffect(() => {
+  if (!templateId) {
+    setMsg('Aucun identifiant de template fourni.');
+    setLoading(false);
+    return;
+  }
 
-    const load = async () => {
-      try {
-        // ✅ FIX BUG 1 : on charge le workflow TEMPLATE (isTemplate:true) créé par l'admin
-        const [wfRes, projRes] = await Promise.all([
-          workflowService.getById(templateId),
-          projectService.getAll
-            ? projectService.getAll()
-            : Promise.resolve({ data: { projects: [] } }),
-        ]);
+  const load = async () => {
+    try {
+      // === NOUVELLE LOGIQUE ===
+      const docTypeRes = await API.get(`/document-types/${templateId}`);
+      const docType = docTypeRes.data?.data?.documentType || docTypeRes.data?.documentType;
+      setDocType(docType);  // ← déjà déclaré dans ton state mais commenté
+      if (!docType) throw new Error('Type de document introuvable');
 
-        const wf = wfRes?.data?.workflow || wfRes?.workflow || null;
-        if (!wf) throw new Error('Workflow introuvable');
+      const workflowId = docType.defaultWorkflow;
 
-        setWorkflow(wf);
+      if (!workflowId) throw new Error('Aucun workflow par défaut configuré pour ce type de document');
 
-        const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
-        setProjects(projs);
-        if (projs.length === 1) setProjectId(projs[0]._id);
+      // Chargement du workflow réel
+      const [wfRes, projRes] = await Promise.all([
+        workflowService.getById(workflowId),           // ← On passe workflowId au lieu de templateId
+        projectService?.getAll
+          ? projectService.getAll()
+          : Promise.resolve({ data: { projects: [] } }),
+      ]);
 
-        const sourceFields = wf.steps?.[0]?.form?.fields || [];
-        const init = {};
-        sourceFields.forEach(f => {
-          if (f.type === 'table') {
-            const emptyRow = { _key: uuidv4() };
-            (f.columns || []).forEach(c => { emptyRow[c.id] = ''; });
-            init[f.id] = [emptyRow];
-          } else if (f.type === 'auto_user') {
-            init[f.id] = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
-          } else if (f.type === 'auto_status') {
-            init[f.id] = 'En cours';
-          } else {
-            init[f.id] = '';
-          }
-        });
-        setFieldValues(init);
+      const wf = wfRes?.data?.workflow || wfRes?.workflow || null;
+      if (!wf) throw new Error('Workflow introuvable');
 
-      } catch (err) {
-        setMsg('Erreur : ' + (err.response?.data?.message || err.message));
-      } finally {
-        setLoading(false);
-      }
-    };
+      if (!wf.isTemplate) throw new Error("Ce workflow n'est pas un template disponible");
+      if (wf.status !== 'active') throw new Error("Ce type de demande n'est plus disponible");
 
-    load();
-  }, [templateId, user]);
+      setWorkflow(wf);
+
+      const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
+      setProjects(projs);
+      if (projs.length === 1) setProjectId(projs[0]._id);
+
+      const empIdx = findEmployeeStepIndex(wf.steps);
+      const sourceFields = wf.steps?.[empIdx]?.form?.fields || [];
+
+      const init = {};
+      sourceFields.forEach(f => {
+        if (f.type === 'table') {
+          const emptyRow = { _key: uuidv4() };
+          (f.columns || []).forEach(c => { emptyRow[c.id] = ''; });
+          init[f.id] = [emptyRow];
+        } else if (f.type === 'auto_user') {
+          init[f.id] = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+        } else if (f.type === 'auto_status') {
+          init[f.id] = 'En cours';
+        } else if (f.type === 'date') {
+          init[f.id] = new Date().toISOString().split('T')[0];
+        } else {
+          init[f.id] = '';
+        }
+      });
+
+      setFieldValues(init);
+
+      // Optionnel : garder le docType pour usage ultérieur
+       setDocType(docType);
+
+    } catch (err) {
+      console.error(err);
+      setMsg('Erreur : ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  load();
+}, [templateId, user]);
+
+  // ── Champs du formulaire employé ─────────────────────────────────────────
+  const empStepIndex = useMemo(() => {
+    if (!workflow) return 0;
+    return findEmployeeStepIndex(workflow.steps);
+  }, [workflow]);
 
   const formFields = useMemo(() => {
     if (!workflow) return [];
-    return workflow.steps?.[0]?.form?.fields || [];
-  }, [workflow]);
+    return workflow.steps?.[empStepIndex]?.form?.fields || [];
+  }, [workflow, empStepIndex]);
 
   const hasFields = formFields.length > 0;
 
-  // ── Soumission ──────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    if (saving) return;
-    if (!workflow) { setMsg('Workflow introuvable'); return; }
-
+  // ── Validation des champs requis ──────────────────────────────────────────
+  const validateFields = () => {
     for (const field of formFields) {
       const isAuto = ['auto_number', 'auto_user', 'auto_status'].includes(field.type) || field.readOnly;
       if (field.required && !isAuto) {
@@ -402,46 +306,47 @@ const EmployeeSubmitRequest = () => {
           const hasEmpty = rows.some(row =>
             (field.columns || []).some(col => col.required && (row[col.id] === '' || row[col.id] === undefined))
           );
-          if (hasEmpty) { setMsg('Tableau incomplet : ' + field.label); return; }
+          if (hasEmpty) return 'Tableau incomplet : ' + field.label;
         } else if (field.type === 'checkbox') {
-          if (!val) { setMsg('Champ requis : ' + field.label); return; }
+          if (!val) return 'Champ requis : ' + field.label;
         } else {
-          if (!val || String(val).trim() === '') { setMsg('Champ requis : ' + field.label); return; }
+          if (!val || String(val).trim() === '') return 'Champ requis : ' + field.label;
         }
       }
     }
+    return null;
+  };
 
-    if (projects.length > 1 && !projectId) { setMsg('Veuillez sélectionner un projet'); return; }
+  // ── Soumission ────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if (saving) return;
+    if (!workflow) { setMsg('Workflow introuvable'); return; }
 
+    const validationError = validateFields();
+    if (validationError) { setMsg(validationError); return; }
     setSaving(true);
     setMsg('');
 
     try {
-      // ✅ FIX BUG 1 : construire les steps en copiant depuis le workflow template
-      //   en injectant les données saisies par l'employé dans steps[0]
       const stepsPayload = (workflow.steps || []).map((step, si) => {
+        const isEmpStep = si === empStepIndex;
         const stepsFields = (step.form?.fields || []).map(f => {
+          if (!isEmpStep) return { ...f, data: null };
           let data = fieldValues[f.id] ?? null;
-          // Pour step 0 uniquement, injecter les valeurs saisies
-          if (si === 0) {
-            if (f.type === 'auto_user') data = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
-            else if (f.type === 'auto_status') data = 'En cours';
-            else if (f.type === 'table') {
-              data = (fieldValues[f.id] || []).map(({ _key, ...rest }) => rest);
-            }
-          }
+          if (f.type === 'auto_user')   data = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+          if (f.type === 'auto_status') data = 'En cours';
+          if (f.type === 'table')       data = (fieldValues[f.id] || []).map(({ _key, ...rest }) => rest);
           return { ...f, data };
         });
         return {
           name:             step.name,
           description:      step.description || '',
           order:            si,
-          // ✅ Step 0 : assignée à l'employé qui soumet (pour pouvoir la compléter)
-          // Steps suivantes : assignées selon le template (validateur, confirmateur...)
-          assignedTo:       si === 0 ? user?._id : null,
-          assignedToName:   si === 0 ? [user?.firstName, user?.lastName].filter(Boolean).join(' ') : '',
-          assignedPost:     si === 0 ? '' : (step.assignedPost || ''),
-          assignedPostName: si === 0 ? '' : (step.assignedPostName || step.assignedPost || ''),
+          isEmployeeStep:   isEmpStep,
+          assignedTo:       isEmpStep ? (user?._id || null) : null,
+          assignedToName:   isEmpStep ? [user?.firstName, user?.lastName].filter(Boolean).join(' ') : '',
+          assignedPost:     isEmpStep ? '' : (step.assignedPost || ''),
+          assignedPostName: isEmpStep ? '' : (step.assignedPostName || step.assignedPost || ''),
           assignedRole:     step.assignedRole || '',
           delai:            step.delai || '',
           claims:           step.claims || { canValidate: true, canReject: true, canModify: false, canView: true },
@@ -450,74 +355,89 @@ const EmployeeSubmitRequest = () => {
         };
       });
 
+      // ✅ CORRECTION — on se base sur le DocumentType réellement sélectionné par
+      // l'employé (docType), et non sur workflow.docType qui n'est jamais rempli
+      // dans ce parcours (le lien se fait via DocumentType.defaultWorkflow).
       let lignesPayload = [];
-      if (workflow.docType) {
+      if (docType) {
         formFields.filter(f => f.type === 'table').forEach(f => {
           const rows = (fieldValues[f.id] || []).map(({ _key, ...rest }) => rest);
           lignesPayload.push(...rows);
         });
       }
-
       const demandeurField = formFields.find(f => f.type === 'auto_user');
       const demandeurValue = demandeurField
         ? [user?.firstName, user?.lastName].filter(Boolean).join(' ')
         : '';
 
-      const resolvedProjectId = projects.length === 1 ? projects[0]._id : projectId;
+      const resolvedProjectId =
+        (typeof workflow.project === 'object' ? workflow.project?._id : workflow.project)
+        || (projects.length === 1 ? projects[0]._id : null);
 
-      // ✅ FIX BUG 1 : créer UN NOUVEAU workflow (instance de la demande employé)
-      //   avec isTemplate: false — il sera distinct du workflow template admin
       const payload = {
         name:        workflow.name + ' — ' + new Date().toLocaleDateString('fr-FR'),
+        docTypeId: templateId,
         description: workflow.description || '',
-        project:     resolvedProjectId || undefined,
-        projectId:   resolvedProjectId || undefined,
+        ...(resolvedProjectId ? { project: resolvedProjectId } : {}),
         dueDate:     dueDate || null,
-        // ✅ référence au template pour traçabilité
-        templateId,
+        templateRef: templateId,
         steps:       stepsPayload,
-        // ✅ EXPLICITEMENT false — c'est une instance de demande, jamais un template
         isTemplate:  false,
         visibility:  'global',
       };
 
-      if (workflow.docType) {
-        payload.docType = workflow.docType;
+      // ✅ CORRECTION — payload.docType utilise désormais le préfixe du
+      // DocumentType sélectionné par l'employé (ex: "DA"), garantissant que
+      // documentData est toujours créé côté backend quand un type est choisi.
+      if (docType) {
         const depotField = formFields.find(f =>
           (f.label || '').toLowerCase().includes('dép') ||
           (f.label || '').toLowerCase().includes('depot')
         );
-        const depotValue = depotField ? (fieldValues[depotField.id] || '') : '';
+        payload.docType      = docType.prefix;
         payload.documentData = {
           demandeur:   demandeurValue,
-          depot:       depotValue,
+          depot:       depotField ? (fieldValues[depotField.id] || '') : '',
           priorite:    'normale',
           commentaire: '',
           lignes:      lignesPayload,
         };
       }
 
+      // ── Étape 1 : créer l'instance ────────────────────────────────────────
       const createRes  = await workflowService.create(payload);
-      const workflowId = createRes?.data?.workflow?._id || createRes?.workflow?._id || createRes?.data?._id;
-      if (!workflowId) throw new Error('Workflow créé mais ID introuvable');
+      const workflowId =
+        createRes?.data?.workflow?._id ||
+        createRes?.data?._id           ||
+        createRes?.workflow?._id;
+      if (!workflowId) throw new Error('Workflow créé mais ID introuvable dans la réponse');
 
-      // ✅ FIX BUG CRITIQUE : NE PAS appeler workflowService.start() ici
-      // start() appelait startWorkflow qui mettait isTemplate:true sur l'instance employé
-      // ce qui l'excluait de getMyTasks (filtre isTemplate:{ $ne:true })
-      // On utilise maintenant startInstance qui active sans toucher à isTemplate
+      // ── Étape 2 : démarrer l'instance ─────────────────────────────────────
       await workflowService.startInstance(workflowId);
 
-      // ✅ Complète immédiatement step 0 (étape employé déjà remplie)
-      // pour faire avancer le workflow vers le validateur (step 1)
-      const step0Fields = (stepsPayload[0]?.form?.fields || []);
-      const formDataForStep0 = {};
-      step0Fields.forEach(f => {
-        if (f.data !== null && f.data !== undefined) formDataForStep0[f.id] = f.data;
+      // ── Étape 3 : compléter l'étape employé ──────────────────────────────
+      const empFields          = stepsPayload[empStepIndex]?.form?.fields || [];
+      const formDataForEmpStep = {};
+      empFields.forEach(f => {
+        if (f.data !== null && f.data !== undefined) formDataForEmpStep[f.id] = f.data;
       });
       await workflowService.completeStep(workflowId, {
-        comment: 'Demande soumise par l\'employé',
-        formData: formDataForStep0,
+        comment:  "Demande soumise par l'employé",
+        formData: formDataForEmpStep,
       });
+
+      // ── Étape 4 : upload des pièces jointes ──────────────────────────────
+      if (attachments.length > 0) {
+        setUploading(true);
+        await Promise.all(attachments.map(file => {
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('workflowId', workflowId);
+          fd.append('stepIndex', String(empStepIndex));
+          return workflowService.uploadDocument(fd).catch(() => null); // non bloquant
+        }));
+        setUploading(false);
+      }
 
       setSuccess(true);
       setTimeout(() => navigate('/dashboard/employee'), 2000);
@@ -529,94 +449,99 @@ const EmployeeSubmitRequest = () => {
     }
   };
 
-  const setField = (id, val) =>
-    setFieldValues(prev => ({ ...prev, [id]: val }));
+  const setField = (id, val) => setFieldValues(prev => ({ ...prev, [id]: val }));
 
-  // ── Écrans d'état ───────────────────────────────────────────────────────────
+  // ── Écrans d'état ─────────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f0f2f7' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F1F5F9' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#4f46e5', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-        <p style={{ color: '#6b7280', fontWeight: '500', fontSize: '14px' }}>Chargement du formulaire...</p>
+        <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+        <p style={{ color: '#475569', fontWeight: '500', fontSize: '14px' }}>Chargement du formulaire...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   );
 
   if (success) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#f0f2f7' }}>
-      <div style={{ background: '#fff', borderRadius: '20px', padding: '52px 44px', textAlign: 'center', maxWidth: '420px', border: '1px solid #e8eaf0', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
-        <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', margin: '0 auto 24px' }}>✓</div>
-        <h2 style={{ margin: '0 0 8px', color: '#111827', fontSize: '20px', fontWeight: '700' }}>Demande soumise !</h2>
-        <p style={{ color: '#6b7280', margin: '0 0 6px', fontSize: '14px' }}>Transmise aux responsables concernés.</p>
-        <p style={{ color: '#9ca3af', margin: 0, fontSize: '12px' }}>Redirection en cours...</p>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#F1F5F9' }}>
+      <div style={{ background: '#fff', borderRadius: '20px', padding: '52px 44px', textAlign: 'center', maxWidth: '420px', border: '1.5px solid #E2E8F0', boxShadow: '0 20px 60px rgba(0,0,0,0.08)' }}>
+        <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', margin: '0 auto 24px', color: '#059669' }}>
+          <i className="ri-check-line"></i>
+        </div>
+        <h2 style={{ margin: '0 0 8px', color: '#0F172A', fontSize: '20px', fontWeight: '700' }}>Demande soumise !</h2>
+  {docType && (
+    <div style={{ background: '#dbeafe', padding: '10px 20px', borderRadius: '10px', margin: '12px 0' }}>
+      <p style={{ margin: '0 0 2px', fontSize: '11px', color: '#475569' }}>Numéro de document</p>
+      <p style={{ margin: 0, fontSize: '20px', fontWeight: 800, fontFamily: 'monospace', color: '#2563eb' }}>
+        {docType.prefix}{new Date().getFullYear().toString().slice(-2)}-{String((docType.counter || 0) + 1).padStart(docType.digits || 3, '0')}
+      </p>
+    </div>
+  )}
+  <p style={{ color: '#475569', margin: '0 0 6px', fontSize: '14px' }}>Transmise aux responsables concernés.</p>
+  <p style={{ color: '#94A3B8', margin: 0, fontSize: '12px' }}>Redirection en cours...</p>
       </div>
     </div>
   );
 
   if (!workflow) return (
-    <div style={{ padding: '60px', textAlign: 'center', color: '#ef4444', fontSize: '15px' }}>
-      ⚠️ {msg || 'Workflow introuvable'}
+    <div style={{ padding: '60px', textAlign: 'center', color: '#ef4444', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+      <i className="ri-error-warning-line"></i> {msg || 'Workflow introuvable'}
     </div>
   );
+
+  const approvalSteps = workflow.steps.filter((_, i) => i !== empStepIndex);
 
   return (
     <div style={S.page}>
       <div style={S.wrap}>
 
-        <button
-          onClick={() => navigate('/dashboard/employee/new-request')}
-          style={{ background: '#fff', border: '1px solid #e5e7eb', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', color: '#6b7280', fontSize: '13px', marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          ← Retour
+        <button onClick={() => navigate('/dashboard/employee/new-request')}
+          style={{ background: '#fff', border: '1.5px solid #E2E8F0', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', color: '#475569', fontSize: '13px', marginBottom: '24px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <i className="ri-arrow-left-line"></i> Retour
         </button>
 
         <div style={{ marginBottom: '28px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div>
-              <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '800', color: '#111827', letterSpacing: '-0.02em' }}>
-                {workflow.name}
-              </h1>
-              {workflow.description && (
-                <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>{workflow.description}</p>
-              )}
+              <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '800', color: '#0F172A', letterSpacing: '-0.02em' }}>{workflow.name}</h1>
+              {workflow.description && <p style={{ margin: 0, color: '#475569', fontSize: '14px' }}>{workflow.description}</p>}
             </div>
-            {workflow.docType && (
-              <span style={{ background: '#ede9fe', color: '#4f46e5', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                📄 {workflow.docType}
+            {docType && (
+              <span style={{ background: '#dbeafe', color: '#2563eb', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <i className="ri-file-text-line"></i> {docType.name}
               </span>
             )}
           </div>
         </div>
 
         {msg && (
-          <div style={{ padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', background: '#fef2f2', color: '#dc2626', fontWeight: '600', fontSize: '14px', border: '1px solid #fecaca' }}>
-            ⚠️ {msg}
+          <div style={{ padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', background: '#FEF2F2', color: '#DC2626', fontWeight: 600, fontSize: '14px', border: '1.5px solid #FECACA', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <i className="ri-error-warning-line"></i> {msg}
           </div>
         )}
 
         {/* ── CIRCUIT D'APPROBATION ── */}
-        {workflow.steps?.length > 0 && (
+        {approvalSteps.length > 0 && (
           <div style={S.card}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Circuit d'approbation</span>
-              <span style={{ ...S.badge('#ede9fe', '#4f46e5') }}>{workflow.steps.length} étape{workflow.steps.length > 1 ? 's' : ''}</span>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Circuit d'approbation</span>
+              <span style={{ ...S.badge('#dbeafe', '#2563eb') }}>{approvalSteps.length} étape{approvalSteps.length > 1 ? 's' : ''}</span>
             </div>
             <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '0', flexWrap: 'wrap', overflowX: 'auto' }}>
-              {workflow.steps.map((step, i) => (
+              {approvalSteps.map((step, i) => (
                 <React.Fragment key={i}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', minWidth: '90px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px' }}>
                       {i + 1}
                     </div>
-                    <span style={{ fontSize: '12px', color: '#374151', fontWeight: '600', textAlign: 'center', lineHeight: '1.3', maxWidth: '80px' }}>{step.name}</span>
+                    <span style={{ fontSize: '12px', color: '#0F172A', fontWeight: '600', textAlign: 'center', lineHeight: '1.3', maxWidth: '80px' }}>{step.name}</span>
                     {(step.assignedPostName || step.assignedPost) && (
-                      <span style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', maxWidth: '80px', lineHeight: '1.2' }}>
+                      <span style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'center', maxWidth: '80px', lineHeight: '1.2' }}>
                         {step.assignedPostName || step.assignedPost}
                       </span>
                     )}
                   </div>
-                  {i < workflow.steps.length - 1 && (
+                  {i < approvalSteps.length - 1 && (
                     <div style={{ width: '28px', height: '2px', background: '#e5e7eb', marginBottom: '30px', flexShrink: 0 }} />
                   )}
                 </React.Fragment>
@@ -625,42 +550,32 @@ const EmployeeSubmitRequest = () => {
           </div>
         )}
 
-        {/* ── PROJET ── */}
-        {projects.length > 1 && (
-          <div style={S.card}>
-            <div style={{ padding: '16px 20px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14px' }}>📁</span>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#374151' }}>Projet</span>
-              <span style={{ ...S.badge('#fee2e2', '#dc2626'), fontSize: '10px' }}>Requis</span>
+        {workflow.project && (() => {
+          const proj = projects.find(p => p._id === (workflow.project?._id || workflow.project));
+          const projName = proj?.name || workflow.project?.name || 'Projet assigné';
+          return (
+            <div style={S.card}>
+              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <i className="ri-folder-line" style={{ fontSize: '16px', color: '#475569' }}></i>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Projet</span>
+                  <p style={{ margin: '2px 0 0', fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{projName}</p>
+                </div>
+                <span style={{ marginLeft: 'auto', ...S.badge('#dcfce7', '#166534'), fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <i className="ri-check-line"></i> Assigné
+                </span>
+              </div>
             </div>
-            <div style={{ padding: '12px 20px 20px' }}>
-              <select
-                value={projectId}
-                onChange={e => setProjectId(e.target.value)}
-                style={{ ...S.input, appearance: 'auto' }}
-              >
-                <option value="">— Choisir un projet —</option>
-                {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-              </select>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
-        {/* ── FORMULAIRE ── */}
-        {/* ✅ BUG 5 FIX : n'afficher les champs que si fieldValues est initialisé
-            Empêche TableField de monter avec value=undefined et d'écraser les données */}
+        {/* ── FORMULAIRE EMPLOYÉ ── */}
         {hasFields && Object.keys(fieldValues).length > 0 ? (
           <div style={S.card}>
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Formulaire de demande
-              </span>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formulaire de demande</span>
               {(() => {
-                const reqCount = formFields.filter(f =>
-                  f.required &&
-                  !['auto_number','auto_user','auto_status'].includes(f.type) &&
-                  !f.readOnly
-                ).length;
+                const reqCount = formFields.filter(f => f.required && !['auto_number','auto_user','auto_status'].includes(f.type) && !f.readOnly).length;
                 return reqCount > 0
                   ? <span style={{ ...S.badge('#fef3c7', '#92400e') }}>{reqCount} champ{reqCount > 1 ? 's' : ''} requis</span>
                   : <span style={{ ...S.badge('#f0fdf4', '#15803d') }}>Tous optionnels</span>;
@@ -668,31 +583,22 @@ const EmployeeSubmitRequest = () => {
             </div>
             <div style={{ padding: '24px' }}>
               {(() => {
-                const autoFields   = formFields.filter(f => ['auto_number','auto_user','auto_status'].includes(f.type) || f.readOnly);
-                const normalFields = formFields.filter(f => !['auto_number','auto_user','auto_status'].includes(f.type) && !f.readOnly);
-                const tableFields  = normalFields.filter(f => f.type === 'table');
+                const autoFields = formFields.filter(f => ['auto_user','auto_status'].includes(f.type) || f.readOnly);              
+                const normalFields = formFields.filter(f => !['auto_number','auto_user','auto_status'].includes(f.type) && !f.readOnly && f.type !== 'auto_number');                const tableFields  = normalFields.filter(f => f.type === 'table');
                 const inlineFields = normalFields.filter(f => f.type !== 'table');
                 return (
                   <>
                     {inlineFields.length > 0 && (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0 24px' }}>
-                        {inlineFields.map(f => (
-                          <FieldRenderer key={f.id} field={f} value={fieldValues[f.id]} onChange={v => setField(f.id, v)} user={user} />
-                        ))}
+                        {inlineFields.map(f => <FieldRenderer key={f.id} field={f} value={fieldValues[f.id]} onChange={v => setField(f.id, v)} user={user} />)}
                       </div>
                     )}
-                    {tableFields.map(f => (
-                      <FieldRenderer key={f.id} field={f} value={fieldValues[f.id]} onChange={v => setField(f.id, v)} user={user} />
-                    ))}
+                    {tableFields.map(f => <FieldRenderer key={f.id} field={f} value={fieldValues[f.id]} onChange={v => setField(f.id, v)} user={user} />)}
                     {autoFields.length > 0 && (
-                      <div style={{ borderTop: inlineFields.length > 0 || tableFields.length > 0 ? '1px solid #f3f4f6' : 'none', paddingTop: inlineFields.length > 0 || tableFields.length > 0 ? '16px' : '0', marginTop: inlineFields.length > 0 || tableFields.length > 0 ? '8px' : '0' }}>
-                        <p style={{ margin: '0 0 12px', fontSize: '11px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          Informations automatiques
-                        </p>
+                      <div style={{ borderTop: inlineFields.length > 0 || tableFields.length > 0 ? '1px solid #f3f4f6' : 'none', paddingTop: '16px', marginTop: '8px' }}>
+                        <p style={{ margin: '0 0 12px', fontSize: '11px', fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Informations automatiques</p>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0 24px' }}>
-                          {autoFields.map(f => (
-                            <FieldRenderer key={f.id} field={f} value={fieldValues[f.id]} onChange={v => setField(f.id, v)} user={user} />
-                          ))}
+                          {autoFields.map(f => <FieldRenderer key={f.id} field={f} value={fieldValues[f.id]} onChange={v => setField(f.id, v)} user={user} />)}
                         </div>
                       </div>
                     )}
@@ -702,43 +608,123 @@ const EmployeeSubmitRequest = () => {
             </div>
           </div>
         ) : (
-          <div style={{ ...S.card }}>
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: '#9ca3af' }}>
-              <p style={{ margin: '0 0 6px', fontSize: '32px' }}>📋</p>
-              <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>
-                Aucun champ configuré par l'administrateur pour ce workflow.
-              </p>
+          <div style={S.card}>
+            <div style={{ padding: '32px 24px', textAlign: 'center', color: '#94A3B8' }}>
+              <i className="ri-clipboard-line" style={{ fontSize: '32px', marginBottom: '6px', display: 'block' }}></i>
+              <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>Aucun champ configuré par l'administrateur pour ce workflow.</p>
             </div>
           </div>
         )}
 
         {/* ── RÉSUMÉ ── */}
-        <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '14px 20px', marginBottom: '20px', border: '1px solid #e5e7eb', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+        <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '14px 20px', marginBottom: '20px', border: '1.5px solid #E2E8F0', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
           <div>
-            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>Workflow</p>
-            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#111827' }}>{workflow.name}</p>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Workflow</p>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{workflow.name}</p>
           </div>
           <div>
-            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>Étapes</p>
-            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#4f46e5' }}>{workflow.steps?.length || 0}</p>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Étapes de validation</p>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{approvalSteps.length}</p>
           </div>
-          {workflow.docType && (
+          {docType && (
             <div>
-              <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>Document généré</p>
-              <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#4f46e5' }}>{workflow.docType} → N° auto</p>
+              <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Document généré</p>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{docType?.prefix}{new Date().getFullYear().toString().slice(-2)}-{String((docType?.counter || 0) + 1).padStart(docType?.digits || 3, '0')}</p>            
             </div>
           )}
           <div>
-            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>Demandeur</p>
-            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#111827' }}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</p>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Demandeur</p>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</p>
           </div>
         </div>
 
-        {/* ── SOUMETTRE ── */}
-        <button type="button" onClick={handleSubmit} disabled={saving} style={S.submitBtn(saving)}>
-          {saving ? '⏳ Envoi en cours...' : '🚀 Soumettre la demande'}
+        {/* ── PIÈCES JOINTES ── */}
+<div style={{ marginBottom: '20px' }}>
+  <input
+    type="file"
+    ref={fileInputRef}
+    style={{ display: 'none' }}
+    accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
+    multiple
+    onChange={e => {
+      const files = Array.from(e.target.files || []);
+      console.log('[DEBUG] fichiers sélectionnés:', files.map(f => f.name));
+      if (files.length > 0) {
+        setAttachments(prev => [...prev, ...files]);
+      }
+      e.target.value = '';
+    }}
+  />
+
+  <div
+    onClick={() => {
+      console.log('[DEBUG] click zone upload, ref:', fileInputRef.current);
+      fileInputRef.current?.click();
+    }}
+    style={{
+      border: '2px dashed #bfdbfe', borderRadius: '12px', padding: '20px',
+      textAlign: 'center', cursor: 'pointer', background: '#fafbff',
+      transition: 'all .15s', marginBottom: attachments.length > 0 ? '12px' : 0,
+    }}
+    onMouseEnter={e => { e.currentTarget.style.borderColor = '#2563eb'; e.currentTarget.style.background = '#eff6ff'; }}
+    onMouseLeave={e => { e.currentTarget.style.borderColor = '#bfdbfe'; e.currentTarget.style.background = '#fafbff'; }}
+  >
+    <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: '600', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+      <i className="ri-attachment-2"></i> Joindre des documents
+    </p>
+    <p style={{ margin: 0, fontSize: '12px', color: '#94A3B8' }}>
+      PDF, images, Word, Excel — 50 MB max par fichier
+    </p>
+    {attachments.length > 0 && (
+      <p style={{ margin: '8px 0 0', fontSize: '12px', fontWeight: '700', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+        <i className="ri-checkbox-circle-fill"></i> {attachments.length} fichier{attachments.length > 1 ? 's' : ''} sélectionné{attachments.length > 1 ? 's' : ''}
+      </p>
+    )}
+  </div>
+
+  {attachments.length > 0 && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {attachments.map((file, i) => (
+        <div key={i} style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          padding: '8px 14px', borderRadius: '8px',
+          background: '#f0fdf4', border: '1px solid #86efac',
+        }}>
+          <span style={{ fontSize: '13px', flex: 1, color: '#0F172A', fontWeight: '500',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <i className="ri-file-text-line"></i> {file.name}
+          </span>
+          <span style={{ fontSize: '11px', color: '#475569', flexShrink: 0 }}>
+            {file.size < 1024 * 1024
+              ? (file.size / 1024).toFixed(0) + ' KB'
+              : (file.size / (1024 * 1024)).toFixed(1) + ' MB'}
+          </span>
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              setAttachments(prev => prev.filter((_, j) => j !== i));
+            }}
+            style={{
+              background: '#fee2e2', border: 'none', color: '#dc2626',
+              width: '22px', height: '22px', borderRadius: '50%',
+              cursor: 'pointer', fontWeight: '700', fontSize: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+          ><i className="ri-close-line"></i></button>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+        {/* ── BOUTON SOUMETTRE ── */}
+        <button type="button" onClick={handleSubmit} disabled={saving} style={{ ...S.submitBtn(saving), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          {saving
+            ? (uploading ? <><i className="ri-attachment-2"></i> Upload en cours...</> : <><i className="ri-time-line"></i> Envoi en cours...</>)
+            : <><i className="ri-rocket-2-line"></i> Soumettre la demande</>}
         </button>
-        <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '12px', marginTop: '10px' }}>
+        <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: '12px', marginTop: '10px' }}>
           Votre demande sera transmise aux responsables pour validation.
         </p>
 

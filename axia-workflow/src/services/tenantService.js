@@ -1,58 +1,51 @@
-import API from './api';
+// services/tenantService.js
+import axios from 'axios';
+
+const API = process.env.REACT_APP_API_URL || 'http://localhost:3002';
+
+const getAuthHeader = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 const tenantService = {
+  getAllTenants: () =>
+    axios.get(`${API}/tenants`, { headers: getAuthHeader() }),
 
-  createRequest: async (data) => {
-    try {
-      const response = await API.post('/subscriptions/request', data);
-      return response.data;
-    } catch (error) {throw new Error(error.response?.data?.message || 'Erreur lors de la demande');
-    }
-  },
+  getTenantById: (id) =>
+    axios.get(`${API}/tenants/${id}`, { headers: getAuthHeader() }),
 
-  getAllTenants: async (status = null) => {
-    try {
-      const url = status ? `/tenants?status=${status}` : '/tenants';
-      const response = await API.get(url);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur récupération');
-    }
-  },
+  // ✅ Point 1 — Approuver depuis la fiche tenant (avec durée)
+  approveTenant: (id, durationMonths = 1) =>
+    axios.patch(`${API}/tenants/${id}/approve`, { durationMonths }, { headers: getAuthHeader() }),
 
-  getTenantById: async (id) => {
-    try {
-      const response = await API.get(`/tenants/${id}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Tenant non trouvé');
-    }
-  },
-  suspendTenant: async (id) => {
-    try {
-      const response = await API.patch(`/tenants/${id}/suspend`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur suspension');
-    }
-  },
-  deleteTenant: async (id) => {
-  try {
-    const response = await API.delete(`/tenants/${id}`);
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.message || 'Erreur suppression');
-  }
-},
+  // ✅ Point 1 — Rejeter depuis la fiche tenant (avec raison)
+  rejectTenant: (id, reason = '') =>
+    axios.patch(`${API}/tenants/${id}/reject`, { reason }, { headers: getAuthHeader() }),
 
-  reactivateTenant: async (id) => {
-    try {
-      const response = await API.patch(`/tenants/${id}/reactivate`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Erreur réactivation');
-    }
-  }
+  suspendTenant: (id) =>
+    axios.patch(`${API}/tenants/${id}/suspend`, {}, { headers: getAuthHeader() }),
+
+  reactivateTenant: (id) =>
+    axios.patch(`${API}/tenants/${id}/reactivate`, {}, { headers: getAuthHeader() }),
+
+  deleteTenant: (id) =>
+    axios.delete(`${API}/tenants/${id}`, { headers: getAuthHeader() }),
+
+  changePlan: (id, planId) =>
+    axios.patch(`${API}/tenants/${id}/plan`, { planId }, { headers: getAuthHeader() }),
+
+  // ✅ Modifier les limites manuellement
+  updateLimits: (id, limits) =>
+    axios.patch(`${API}/tenants/${id}/limits`, limits, { headers: getAuthHeader() }),
+
+  // ✅ Renvoyer les identifiants par email
+  resendCredentials: (id) =>
+    axios.post(`${API}/tenants/${id}/resend-credentials`, {}, { headers: getAuthHeader() }),
+
+  // ✅ Renouveler l'abonnement (tenant expiré)
+  renewSubscription: (id, durationMonths) =>
+    axios.patch(`${API}/tenants/${id}/renew`, { durationMonths }, { headers: getAuthHeader() }),
 };
 
 export default tenantService;

@@ -1,17 +1,5 @@
 const mongoose = require('mongoose');
-const DOC_TRANSFORMATIONS = {
-  'DA':  'DAC',
-  'DAC': 'BS',
-  'BS':  'DF',
-  'DF':  'BR',
-};
-const generateDocNumber = async (conn, type) => {
-  const schema = require('../models/businessDocumentModel').schema;
-  const BDoc   = safeModel(conn, 'BusinessDocument', schema);
-  const year   = new Date().getFullYear().toString().slice(-2);
-  const count  = await BDoc.countDocuments({ type });
-  return type + year + String(count + 1).padStart(3, '0');
-};
+
 
 const safeModel = (conn, name, schema) => {
   try { return conn.model(name); }
@@ -25,15 +13,14 @@ const getWorkflowModel = (req) => {
   return safeModel(conn, 'Workflow', schema);
 };
 
-// ✅ FIX BUG 1 : helper centralisé pour normaliser les champs d'un formulaire
-// Utilisé dans createWorkflow ET updateWorkflow pour éviter l'erreur "options"
+// ✅ Helper centralisé pour normaliser les champs d'un formulaire
 const normalizeFormFields = (fields = []) => {
   return (fields || [])
-    .filter(f => f != null && typeof f === 'object')   // ← élimine les null/undefined
+    .filter(f => f != null && typeof f === 'object')
     .map((f) => ({
       ...f,
       id:         f.id         || new mongoose.Types.ObjectId().toString(),
-      options:    Array.isArray(f.options)  ? f.options  : [],   // ← plus jamais undefined
+      options:    Array.isArray(f.options)  ? f.options  : [],
       columns:    Array.isArray(f.columns)  ? f.columns  : [],
       readOnly:   f.readOnly   || false,
       autoSource: f.autoSource || '',
@@ -94,11 +81,16 @@ const canUserSeeWorkflow = (workflow, user) => {
   if (workflow.visibility !== 'restricted') return true;
   const userId   = user._id.toString();
   const userRole = typeof user.role === 'object' ? user.role?.name : user.role;
-  const userPost = user.jobTitle || '';
+  const userPost = (user.jobTitle || '').toLowerCase().trim();
 
   if (workflow.allowedUsers?.some(u => u.toString() === userId)) return true;
   if (workflow.allowedRoles?.includes(userRole)) return true;
-  if (workflow.allowedPosts?.includes(userPost)) return true;
+  if (workflow.allowedPosts?.some(p => {
+    const pLower = p.toLowerCase().trim();
+    return pLower === userPost
+      || pLower.includes(userPost)
+      || userPost.includes(pLower);
+  })) return true;
   return false;
 };
 
@@ -119,16 +111,27 @@ exports.getWorkflows = async (req, res) => {
 };
 
 // ── GET /workflows/audit-log ──────────────────────────────────────────────────
+// ✅ BUG 4 CORRIGÉ — filtre en MongoDB quand possible + limite de sécurité
 exports.getAuditLog = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
     const { action, user, from, to, workflowId } = req.query;
 
-    const all = await Workflow.find({ 'history.0': { $exists: true } }).sort({ updatedAt: -1 });
+    // Construire le filtre MongoDB
+    const matchQuery = { 'history.0': { $exists: true } };
+    if (workflowId) matchQuery._id = new mongoose.Types.ObjectId(workflowId);
+
+    const all = await Workflow.find(matchQuery).sort({ updatedAt: -1 }).limit(500);
 
     let entries = [];
     all.forEach((wf) => {
       (wf.history || []).forEach((h) => {
+        // Filtres rapides inline
+        if (action && h.action !== action) return;
+        if (user && !h.byName?.toLowerCase().includes(user.toLowerCase())) return;
+        if (from && new Date(h.date) < new Date(from)) return;
+        if (to   && new Date(h.date) > new Date(to + 'T23:59:59')) return;
+
         entries.push({
           workflowId:     wf._id,
           workflowName:   wf.name,
@@ -143,15 +146,9 @@ exports.getAuditLog = async (req, res) => {
       });
     });
 
-    if (workflowId) entries = entries.filter(e => e.workflowId.toString() === workflowId);
-    if (action)     entries = entries.filter(e => e.action === action);
-    if (user)       entries = entries.filter(e => e.byName?.toLowerCase().includes(user.toLowerCase()));
-    if (from)       entries = entries.filter(e => new Date(e.date) >= new Date(from));
-    if (to)         entries = entries.filter(e => new Date(e.date) <= new Date(to + 'T23:59:59'));
-
     entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-
     res.json({ status: 'success', data: { entries, total: entries.length } });
+
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -169,7 +166,14 @@ exports.getWorkflow = async (req, res) => {
     const userRole = typeof req.user.role === 'object' ? req.user.role?.name : req.user.role;
     const isAdmin  = req.user.isCompanyAdmin || userRole === 'company_admin';
 
-    if (!isAdmin && !canUserSeeWorkflow(workflow, req.user)) {
+    const isCreator   = workflow.createdBy?.toString() === req.user._id.toString();
+    const isTemplate  = workflow.isTemplate === true;
+    const isAssignee  = (workflow.steps || []).some(s =>
+      s.assignedTo?.toString() === req.user._id.toString() ||
+      (s.assignedPost && s.assignedPost.toLowerCase().trim() === (req.user.jobTitle || '').toLowerCase().trim())
+    );
+
+    if (!isAdmin && !isTemplate && !isCreator && !isAssignee && !canUserSeeWorkflow(workflow, req.user)) {
       return res.status(403).json({ status: 'fail', message: 'Accès refusé à ce workflow' });
     }
 
@@ -199,7 +203,7 @@ exports.createWorkflow = async (req, res) => {
     } = req.body;
 
     const projectRef = project || projectId || null;
-    // ✅ FIX BUG 1 : utilisation de normalizeFormFields pour éviter "options undefined"
+
     const stepsWithDefaults = steps.map((s, i) => ({
       ...s,
       order:            s.order ?? i,
@@ -219,44 +223,39 @@ exports.createWorkflow = async (req, res) => {
     }));
 
     const workflow = await Workflow.create({
-  name, description,
-  ...(projectRef ? { project: projectRef } : {}),  // ✅ n'inclut project que s'il existe
-  createdBy:  req.user._id,
-  dueDate,
-  isTemplate: req.body.isTemplate || false,
-  docType:    req.body.docType || '',
-  steps:      stepsWithDefaults,
-  visibility,
-  allowedRoles,
-  allowedPosts,
-  allowedUsers,
-});
+      name, description,
+      ...(projectRef ? { project: projectRef } : {}),
+      createdBy:  req.user._id,
+      dueDate,
+      isTemplate: req.body.isTemplate || false,
+      docType:    mongoose.Types.ObjectId.isValid(req.body.docType) ? req.body.docType : null,
+      steps:      stepsWithDefaults,
+      visibility,
+      allowedRoles,
+      allowedPosts,
+      allowedUsers,
+    });
 
-    // ── Créer le document initial si docType fourni ──────────────────────────
-    if (req.body.docType && req.body.documentData) {
+    // ── Génération du docNumber ───────────────────────────────────────────
+    const docTypeId = req.body.docTypeId || req.body.docType;
+
+    if (docTypeId) {
       try {
-        const bdSchema  = require('../models/businessDocumentModel').schema;
-        const BDoc      = safeModel(req.tenantConnection, 'BusinessDocument', bdSchema);
-        const number    = await generateDocNumber(req.tenantConnection, req.body.docType);
-        const doc       = await BDoc.create({
-          number,
-          type:          req.body.docType,
-          statut:        'en_cours',
-          demandeur:     req.body.documentData.demandeur,
-          depot:         req.body.documentData.depot,
-          priorite:      req.body.documentData.priorite || 'normale',
-          commentaire:   req.body.documentData.commentaire,
-          lignes:        req.body.documentData.lignes || [],
-          workflow:      workflow._id,
-          createdBy:     req.user._id,
-          createdByName: req.user.firstName + ' ' + req.user.lastName,
-        });
-        workflow.docType     = req.body.docType;
-        workflow.businessDoc = doc._id;
-        workflow.rootDoc     = doc._id;
-        await workflow.save();
+        const dtSchema = require('../models/documentTypeModel').schema;
+        const DT = safeModel(req.tenantConnection, 'DocumentType', dtSchema);
+
+        const dt = mongoose.Types.ObjectId.isValid(docTypeId)
+          ? await DT.findByIdAndUpdate(docTypeId, { $inc: { counter: 1 } }, { new: true })
+          : await DT.findOneAndUpdate({ prefix: docTypeId, isActive: true }, { $inc: { counter: 1 } }, { new: true });
+
+        if (dt) {
+          const year = new Date().getFullYear().toString().slice(-2);
+          workflow.docNumber = `${dt.prefix}${year}-${String(dt.counter).padStart(dt.digits, '0')}`;
+          workflow.docType   = dt._id;
+          await workflow.save();
+        }
       } catch (e) {
-        console.warn('⚠️ Création doc initiale:', e.message);
+        console.warn('⚠️ docNumber generation failed:', e.message);
       }
     }
 
@@ -270,7 +269,6 @@ exports.createWorkflow = async (req, res) => {
 };
 
 // ── PATCH /workflows/:id/start ────────────────────────────────────────────────
-// Utilisé par l'ADMIN pour activer un workflow template (visible aux employés)
 exports.startWorkflow = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
@@ -280,7 +278,7 @@ exports.startWorkflow = async (req, res) => {
 
     workflow.status     = 'active';
     workflow.startedAt  = new Date();
-    workflow.isTemplate = true; // ✅ workflow démarré par admin = template visible aux employés
+    workflow.isTemplate = true;
     if (workflow.steps.length > 0) workflow.steps[0].status = 'in_progress';
 
     workflow.history.push({
@@ -298,8 +296,6 @@ exports.startWorkflow = async (req, res) => {
 };
 
 // ── PATCH /workflows/:id/start-instance ──────────────────────────────────────
-// ✅ NOUVEAU — Utilisé par l'EMPLOYÉ pour démarrer sa propre demande
-// Ne touche PAS à isTemplate (reste false pour les instances employés)
 exports.startInstance = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
@@ -309,7 +305,6 @@ exports.startInstance = async (req, res) => {
 
     workflow.status    = 'active';
     workflow.startedAt = new Date();
-    // ✅ isTemplate reste false — c'est une instance de demande employé, pas un template
     if (workflow.steps.length > 0) workflow.steps[0].status = 'in_progress';
 
     workflow.history.push({
@@ -323,6 +318,50 @@ exports.startInstance = async (req, res) => {
     res.json({ status: 'success', data: { workflow } });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ── HELPER : propage les données de tableau entre étapes
+// ─────────────────────────────────────────────────────────────────────────────
+const propagateTableData = (workflow, completedStepIndex) => {
+  const completedStep = workflow.steps[completedStepIndex];
+  if (!completedStep?.form?.fields) return;
+
+  const sourceTableFields = completedStep.form.fields.filter(
+    f => f.type === 'table' && Array.isArray(f.data) && f.data.length > 0
+  );
+  if (sourceTableFields.length === 0) return;
+
+  for (let i = completedStepIndex + 1; i < workflow.steps.length; i++) {
+    const targetStep = workflow.steps[i];
+    if (!targetStep?.form?.fields) continue;
+
+    sourceTableFields.forEach(sourceField => {
+      const targetField = targetStep.form.fields.find(f =>
+        f.type === 'table' && (
+          f.label === sourceField.label ||
+          f.label?.toLowerCase().includes('article') ||
+          f.id === sourceField.id
+        )
+      );
+      if (!targetField) return;
+
+      const sourceColIds = (sourceField.columns || []).map(c => c.id);
+      const extraCols    = (targetField.columns || []).filter(
+        tc => !sourceColIds.includes(tc.id)
+      );
+
+      targetField.data = (sourceField.data || []).map(row => {
+        const newRow = { ...row };
+        extraCols.forEach(col => {
+          if (newRow[col.id] === undefined) newRow[col.id] = '';
+        });
+        return newRow;
+      });
+
+      console.log(`✅ Propagation "${sourceField.label}" → étape[${i}] "${targetStep.name}" — ${targetField.data.length} lignes, ${extraCols.length} col(s) extra vide(s)`);
+    });
   }
 };
 
@@ -353,9 +392,7 @@ exports.completeStep = async (req, res) => {
       return res.status(403).json({ status: 'fail', message: 'Cette étape ne vous est pas assignée' });
     }
 
-    // ✅ BUG 3 FIX : le créateur peut toujours compléter step 0 (sa propre demande)
-    // même si canValidate=false sur l'étape employé
-    const isCreator      = workflow.createdBy?.toString() === userId;
+    const isCreator        = workflow.createdBy?.toString() === userId;
     const isStep0ByCreator = isCreator && stepIndex === 0;
     if (!isAdmin && !isStep0ByCreator && step.claims?.canValidate === false) {
       return res.status(403).json({ status: 'fail', message: "Vous n'avez pas la permission de valider cette étape" });
@@ -363,7 +400,7 @@ exports.completeStep = async (req, res) => {
 
     if (formData && step.form?.fields) {
       step.form.fields.forEach((field) => {
-        if (formData[field.id] !== undefined) field.data = formData[field.id]; // FIX: data pas value
+        if (formData[field.id] !== undefined) field.data = formData[field.id];
       });
     }
     if (checklistData) {
@@ -383,6 +420,8 @@ exports.completeStep = async (req, res) => {
       comment: comment || '', date: new Date(),
     });
 
+    propagateTableData(workflow, stepIndex);
+
     const submittedFormData = {};
     if (step.form?.fields) {
       step.form.fields.forEach((field) => {
@@ -393,7 +432,6 @@ exports.completeStep = async (req, res) => {
       });
     }
     const allFormData = { ...submittedFormData, ...(formData || {}) };
-    console.log('🔍 Moteur conditions — formData évalué:', allFormData);
 
     const nextIndex = evaluateNextStep(workflow, stepIndex, allFormData);
 
@@ -401,79 +439,41 @@ exports.completeStep = async (req, res) => {
       workflow.currentStep             = nextIndex;
       workflow.steps[nextIndex].status = 'in_progress';
       workflow.history.push({
-        action:    'step_skipped_by_condition',
-        stepIndex: nextIndex,
-        stepName:  workflow.steps[nextIndex].name,
-        by:        req.user._id,
-        byName:    req.user.firstName + ' ' + req.user.lastName,
-        comment:   'Sélectionné par moteur de conditions',
-        date:      new Date(),
+        action: 'step_skipped_by_condition', stepIndex: nextIndex,
+        stepName: workflow.steps[nextIndex].name,
+        by: req.user._id, byName: req.user.firstName + ' ' + req.user.lastName,
+        comment: 'Sélectionné par moteur de conditions', date: new Date(),
       });
     } else {
-      workflow.status      = 'completed';
-      workflow.completedAt = new Date();
-      workflow.history.push({
-        action: 'workflow_completed',
-        by:     req.user._id,
-        byName: req.user.firstName + ' ' + req.user.lastName,
-        date:   new Date(),
-      });
+      const remainingSteps = workflow.steps.slice(stepIndex + 1);
+      const hasMoreSteps   = remainingSteps.some(s => s.status === 'pending');
+
+      if (hasMoreSteps) {
+        const simpleNext = stepIndex + 1;
+        if (simpleNext < workflow.steps.length) {
+          workflow.currentStep              = simpleNext;
+          workflow.steps[simpleNext].status = 'in_progress';
+        }
+      } else {
+        workflow.status      = 'completed';
+        workflow.completedAt = new Date();
+        workflow.history.push({
+          action: 'workflow_completed',
+          by: req.user._id, byName: req.user.firstName + ' ' + req.user.lastName,
+          date: new Date(),
+        });
+      }
     }
 
     workflow.markModified('steps');
     await workflow.save();
 
     try {
-      if (workflow.docType && workflow.businessDoc) {
-        const nextDocType = DOC_TRANSFORMATIONS[workflow.docType];
-        if (nextDocType && workflow.status !== 'completed') {
-          const bdSchema  = require('../models/businessDocumentModel').schema;
-          const BDoc      = safeModel(req.tenantConnection, 'BusinessDocument', bdSchema);
-          const sourceDoc = await BDoc.findById(workflow.businessDoc);
-          if (sourceDoc) {
-            const newNumber = await generateDocNumber(req.tenantConnection, nextDocType);
-            const newDoc = await BDoc.create({
-              number:        newNumber,
-              type:          nextDocType,
-              statut:        'en_cours',
-              demandeur:     sourceDoc.demandeur,
-              depot:         sourceDoc.depot,
-              priorite:      sourceDoc.priorite,
-              lignes:        sourceDoc.lignes,
-              workflow:      workflow._id,
-              parentDoc:     sourceDoc._id,
-              rootDoc:       sourceDoc.rootDoc || sourceDoc._id,
-              createdBy:     req.user._id,
-              createdByName: req.user.firstName + ' ' + req.user.lastName,
-            });
-            workflow.docType     = nextDocType;
-            workflow.businessDoc = newDoc._id;
-            await workflow.save();
-            sourceDoc.statut = 'validé';
-            await sourceDoc.save();
-            console.log(`✅ Transformation : ${workflow.docType} → ${newDoc.number}`);
-          }
-        }
-        if (workflow.status === 'completed' && workflow.businessDoc) {
-          const bdSchema = require('../models/businessDocumentModel').schema;
-          const BDoc     = safeModel(req.tenantConnection, 'BusinessDocument', bdSchema);
-          await BDoc.findByIdAndUpdate(workflow.businessDoc, { statut: 'validé' });
-        }
-      }
-    } catch (docErr) {
-      console.warn('⚠️ Transformation doc non bloquante:', docErr.message);
-    }
-
-    try {
       const notifService = require('../services/notificationService');
       const byName = req.user.firstName + ' ' + req.user.lastName;
-
       if (workflow.status === 'completed') {
-        // Workflow entierement approuve -> notifier l'employe (createur)
         await notifService.notifyWorkflowCompleted(req.tenantConnection, workflow);
       } else {
-        // Une etape vient d'etre completee -> notifier le responsable de l'etape suivante
-        // ET informer l'employe que sa demande avance
         await notifService.notifyStepCompleted(req.tenantConnection, workflow, stepIndex, byName);
       }
     } catch (e) { console.warn('Notif error:', e.message); }
@@ -483,7 +483,6 @@ exports.completeStep = async (req, res) => {
     res.status(500).json({ status: 'error', message: err.message });
   }
 };
-
 // ── PATCH /workflows/:id/reject-step ─────────────────────────────────────────
 exports.rejectStep = async (req, res) => {
   try {
@@ -513,7 +512,6 @@ exports.rejectStep = async (req, res) => {
       return res.status(403).json({ status: 'fail', message: 'Cette étape ne vous est pas assignée' });
     }
 
-    // ✅ FIX : claims vérifié APRÈS avoir confirmé que l'étape appartient à l'utilisateur
     if (!isAdmin && step.claims?.canReject === false) {
       return res.status(403).json({ status: 'fail', message: "Vous n'avez pas la permission de rejeter cette étape" });
     }
@@ -547,30 +545,13 @@ exports.rejectStep = async (req, res) => {
 exports.getMyRequests = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
-
     const workflows = await Workflow.find({
       createdBy:  req.user._id,
       isTemplate: { $ne: true },
       status:     { $ne: 'archived' },
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    }).sort({ createdAt: -1 }).lean();
 
-    let enriched = workflows;
-    try {
-      const bdSchema = require('../models/businessDocumentModel').schema;
-      const BDoc     = safeModel(req.tenantConnection, 'BusinessDocument', bdSchema);
-
-      enriched = await Promise.all(workflows.map(async (wf) => {
-        if (!wf.businessDoc) return wf;
-        try {
-          const doc = await BDoc.findById(wf.businessDoc).lean();
-          return { ...wf, businessDocInfo: doc ? { number: doc.number, type: doc.type, priorite: doc.priorite, demandeur: doc.demandeur } : null };
-        } catch (_) { return wf; }
-      }));
-    } catch (_) {}
-
-    res.json({ status: 'success', data: { workflows: enriched, total: enriched.length } });
+    res.json({ status: 'success', data: { workflows, total: workflows.length } });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -591,16 +572,19 @@ exports.getMyTasks = async (req, res) => {
 
     const tasks = [];
     for (const wf of workflows) {
-      // FIX 2 : chercher TOUTES les étapes in_progress assignées à cet user
-      // et pas uniquement wf.steps[wf.currentStep] qui peut être désynchronisé
       const stepIdx = wf.steps.findIndex((step) => {
         if (step.status !== 'in_progress') return false;
         if (step.claims?.canView === false) return false;
         const assignedTo = step.assignedTo?.toString();
         const stepPost   = (step.assignedPost || '').toLowerCase().trim();
         const stepRole   = step.assignedRole  || '';
+        const uPost      = userPost.toLowerCase().trim();
         const byId   = assignedTo === userId;
-        const byPost = stepPost !== '' && stepPost === userPost.toLowerCase().trim();
+        const byPost = stepPost !== '' && uPost !== '' && (
+          stepPost === uPost
+          || stepPost.includes(uPost)
+          || uPost.includes(stepPost)
+        );
         const byRole = stepRole !== '' && stepRole === userRole;
         if (byId || byPost || byRole) {
           console.log('getMyTasks -> MATCH wf:', wf.name, '| step:', step.name,
@@ -610,7 +594,6 @@ exports.getMyTasks = async (req, res) => {
         }
         return false;
       });
-
       if (stepIdx === -1) continue;
       const step = wf.steps[stepIdx];
       tasks.push({
@@ -618,8 +601,13 @@ exports.getMyTasks = async (req, res) => {
         workflowName: wf.name,
         stepIndex:    stepIdx,
         dueDate:      wf.dueDate,
+        docNumber:    wf.docNumber || '',
         history:      (wf.history || []).slice(-5),
         step:         { ...step.toObject(), claims: step.claims },
+        step0Fields:  (wf.steps[0]?.form?.fields || []).map(f => ({
+          ...f.toObject ? f.toObject() : f,
+          data: f.data ?? null,
+        })),
       });
     }
 
@@ -658,18 +646,13 @@ exports.getWorkflowStats = async (req, res) => {
     const Workflow = getWorkflowModel(req);
     const now = new Date();
 
-    // ── Tous les enregistrements ─────────────────────────────────────────────
     const all = await Workflow.find()
       .populate('createdBy', 'firstName lastName')
       .sort({ updatedAt: -1 });
 
-    // ── Séparation templates / instances ────────────────────────────────────
-    // templates  = créés par admin (isTemplate:true)
-    // instances  = demandes soumises par employés (isTemplate:false ou absent)
     const templates  = all.filter(w => w.isTemplate === true);
     const instances  = all.filter(w => w.isTemplate !== true);
 
-    // ── Stats portent UNIQUEMENT sur les instances (demandes réelles) ────────
     const stats = {
       total:     instances.length,
       draft:     instances.filter(w => w.status === 'draft').length,
@@ -677,7 +660,6 @@ exports.getWorkflowStats = async (req, res) => {
       completed: instances.filter(w => w.status === 'completed').length,
       rejected:  instances.filter(w => w.status === 'rejected').length,
       overdue:   0,
-      // compteurs templates pour info admin
       totalTemplates:  templates.length,
       activeTemplates: templates.filter(w => w.status === 'active').length,
       draftTemplates:  templates.filter(w => w.status === 'draft').length,
@@ -715,13 +697,12 @@ exports.getWorkflowStats = async (req, res) => {
       };
     };
 
-    // ── Réponse avec les 2 listes séparées ───────────────────────────────────
     res.status(200).json({
       status: 'success',
       data: {
         stats,
-        workflows:  instances.map(mapWorkflow),   // demandes employés
-        templates:  templates.map(mapWorkflow),    // templates admin
+        workflows:  instances.map(mapWorkflow),
+        templates:  templates.map(mapWorkflow),
       },
     });
   } catch (err) {
@@ -761,8 +742,42 @@ exports.uploadDocument = async (req, res) => {
     }
     const Document = safeModel(conn, 'Document', docSchema);
 
+    // ── Nom d'affichage propre ────────────────────────────────────────────
+    // Si le frontend fournit explicitement un nom, on le garde.
+    // Sinon on construit "DA26-005 - Validation Responsable Achat.png"
+    // plutôt que d'afficher le nom de fichier brut (souvent un UUID généré
+    // par l'outil d'origine de l'utilisateur, ex: removebg-preview.png).
+    let displayName = req.body.name;
+
+    if (!displayName) {
+      const ext = (req.file.originalname.split('.').pop() || '').toLowerCase();
+      let docNumber = null;
+      let stepName  = null;
+
+      if (req.body.workflowId) {
+        try {
+          const Workflow = getWorkflowModel(req);
+          const wf = await Workflow.findById(req.body.workflowId).select('docNumber steps').lean();
+          if (wf) {
+            docNumber = wf.docNumber || null;
+            const idx = req.body.stepIndex !== undefined ? Number(req.body.stepIndex) : null;
+            if (idx !== null && wf.steps?.[idx]) stepName = wf.steps[idx].name;
+          }
+        } catch (e) { /* on retombe sur le nom original si le workflow est introuvable */ }
+      }
+
+      if (docNumber && stepName) {
+        displayName = `${docNumber} - ${stepName}.${ext}`;
+      } else if (docNumber) {
+        displayName = `${docNumber}.${ext}`;
+      } else {
+        // Dernier recours : on garde le nom original (mieux qu'un nom vide)
+        displayName = req.file.originalname;
+      }
+    }
+
     const doc = await Document.create({
-      name:           req.body.name || req.file.originalname,
+      name:           displayName,
       mimetype:       req.file.mimetype,
       uploadedBy:     req.user._id,
       uploadedByName: req.user.firstName + ' ' + req.user.lastName,
@@ -773,6 +788,8 @@ exports.uploadDocument = async (req, res) => {
       type: req.file.mimetype.startsWith('image') ? 'image'
           : req.file.mimetype.startsWith('video') ? 'video'
           : req.file.mimetype === 'application/pdf' ? 'pdf' : 'document',
+      workflow:   req.body.workflowId || null,
+      stepIndex:  req.body.stepIndex  !== undefined ? Number(req.body.stepIndex) : null,
     });
 
     res.status(201).json({ status: 'success', data: { document: doc } });
@@ -801,7 +818,7 @@ exports.getDocuments = async (req, res) => {
     if (projectId)  query.project  = projectId;
 
     const documents = await Document.find(query).sort({ createdAt: -1 });
-    res.json({ status: 'success', data: { documents } });
+    res.json({ status: 'success', documents, data: { documents } });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
@@ -831,30 +848,56 @@ exports.updateWorkflow = async (req, res) => {
     if (name)                      workflow.name        = name;
     if (description !== undefined) workflow.description = description;
     if (dueDate !== undefined)     workflow.dueDate     = dueDate || null;
-    if (visibility)                workflow.visibility  = visibility;
-    if (allowedRoles)              workflow.allowedRoles  = allowedRoles;
-    if (allowedPosts)              workflow.allowedPosts  = allowedPosts;
-    if (allowedUsers)              workflow.allowedUsers  = allowedUsers;
 
-    // ✅ FIX BUG 1 : même normalisation que createWorkflow
-    workflow.steps = steps.map((s, i) => ({
-      ...s,
-      order:            s.order ?? i,
-      status:           'pending',
-      assignedPostName: s.assignedPostName || s.assignedPost || '',
-      assignedToName:   s.assignedToName   || '',
-      conditions:       s.conditions       || [],
-      form: {
-        fields: normalizeFormFields(s.form?.fields),
-      },
-      claims: {
-        canValidate: s.claims?.canValidate !== false,
-        canReject:   s.claims?.canReject   !== false,
-        canModify:   s.claims?.canModify   === true,
-        canView:     s.claims?.canView     !== false,
-      },
-    }));
+    if (visibility) {
+      workflow.visibility = visibility;
+      if (visibility === 'global') {
+        workflow.allowedPosts = [];
+        workflow.allowedRoles = [];
+        workflow.allowedUsers = [];
+      } else {
+        if (allowedPosts !== undefined) workflow.allowedPosts = allowedPosts;
+        if (allowedRoles !== undefined) workflow.allowedRoles = allowedRoles;
+        if (allowedUsers !== undefined) workflow.allowedUsers = allowedUsers;
+      }
+    }
 
+    const syncedSteps = steps.map((s, i) => {
+      const matchingNode = nodes.find(n =>
+        n.type === 'etape' && (
+          n.label === s.name ||
+          n.label?.toLowerCase() === s.name?.toLowerCase()
+        )
+      );
+      const merged = matchingNode ? {
+        ...s,
+        assignedPost:     matchingNode.assignedPost     || s.assignedPost     || '',
+        assignedPostName: matchingNode.assignedPostName || s.assignedPostName || s.assignedPost || '',
+        assignedTo:       matchingNode.assignedTo       || s.assignedTo       || null,
+        assignedToName:   matchingNode.assignedToName   || s.assignedToName   || '',
+        delai:            matchingNode.delai            || s.delai            || '',
+      } : s;
+
+      return {
+        ...merged,
+        order:      merged.order ?? i,
+        status:     'pending',
+        conditions: merged.conditions || [],
+        form: {
+          fields: normalizeFormFields(
+            (matchingNode?.form?.fields?.length > 0 ? matchingNode.form.fields : merged.form?.fields)
+          ),
+        },
+        claims: {
+          canValidate: merged.claims?.canValidate !== false,
+          canReject:   merged.claims?.canReject   !== false,
+          canModify:   merged.claims?.canModify   === true,
+          canView:     merged.claims?.canView     !== false,
+        },
+      };
+    });
+
+    workflow.steps       = syncedSteps;
     workflow.canvasNodes = nodes;
     workflow.canvasEdges = edges;
     workflow.currentStep = 0;
@@ -907,10 +950,18 @@ exports.updateWorkflowVisibility = async (req, res) => {
 
     const { visibility, allowedRoles = [], allowedPosts = [], allowedUsers = [] } = req.body;
 
-    if (visibility)  workflow.visibility   = visibility;
-    workflow.allowedRoles  = allowedRoles;
-    workflow.allowedPosts  = allowedPosts;
-    workflow.allowedUsers  = allowedUsers;
+    if (visibility) {
+      workflow.visibility = visibility;
+      if (visibility === 'global') {
+        workflow.allowedPosts = [];
+        workflow.allowedRoles = [];
+        workflow.allowedUsers = [];
+      } else {
+        if (allowedPosts) workflow.allowedPosts = allowedPosts;
+        if (allowedRoles) workflow.allowedRoles = allowedRoles;
+        if (allowedUsers) workflow.allowedUsers = allowedUsers;
+      }
+    }
 
     await workflow.save();
     res.json({ status: 'success', data: { workflow } });
@@ -921,25 +972,10 @@ exports.updateWorkflowVisibility = async (req, res) => {
 
 // ── GET /workflows/:id/document-chain ────────────────────────────────────────
 exports.getDocumentChain = async (req, res) => {
-  try {
-    const Workflow = getWorkflowModel(req);
-    const workflow = await Workflow.findById(req.params.id);
-    if (!workflow?.businessDoc) return res.json({ status: 'success', data: { chain: [] } });
-
-    const bdSchema = require('../models/businessDocumentModel').schema;
-    const BDoc     = safeModel(req.tenantConnection, 'BusinessDocument', bdSchema);
-
-    const rootId = workflow.rootDoc || workflow.businessDoc;
-    const chain  = await BDoc.find({
-      $or: [{ _id: rootId }, { rootDoc: rootId }],
-    }).sort({ createdAt: 1 });
-
-    res.json({ status: 'success', data: { chain } });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: err.message });
-  }
+  res.json({ status: 'success', data: { chain: [] } });
 };
 
+// ── DELETE /workflows/:id ─────────────────────────────────────────────────────
 exports.deleteWorkflow = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
@@ -949,7 +985,6 @@ exports.deleteWorkflow = async (req, res) => {
       return res.status(404).json({ status: 'fail', message: 'Workflow non trouvé' });
     }
 
-    // ❌ Impossible de supprimer un workflow actif — les employés en ont besoin
     if (workflow.status === 'active') {
       return res.status(400).json({
         status: 'fail',
@@ -965,7 +1000,6 @@ exports.deleteWorkflow = async (req, res) => {
 };
 
 // ── PATCH /workflows/:id/deactivate ──────────────────────────────────────────
-// Désactive un workflow actif (le retire de la liste des demandes employés)
 exports.deactivateWorkflow = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
@@ -993,21 +1027,45 @@ exports.deactivateWorkflow = async (req, res) => {
     res.status(500).json({ status: 'error', message: err.message });
   }
 };
+
 // ── GET /workflows/templates/active ──────────────────────────────────────────
-// Retourne uniquement les workflows isTemplate:true + status:'active'
-// Utilisé par les employés pour choisir leur type de demande
 exports.getActiveTemplates = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
-    // FIX 1 : on cherche UNIQUEMENT isTemplate:true
-    // Les demandes employés (isTemplate:false) ne doivent PAS apparaître ici
-    // Les anciens workflows sans le champ sont exclus volontairement
-    const workflows = await Workflow.find({
+    const userPost = (req.user.jobTitle || '').toLowerCase().trim();
+
+    const all = await Workflow.find({
       status:     'active',
       isTemplate: true,
     }).sort({ createdAt: -1 });
 
-    res.json({ status: 'success', data: { workflows } });
+    const visible = all.filter(wf => {
+      const allowed = wf.allowedPosts || [];
+      if (allowed.length === 0) return true;
+      if (!userPost) return false;
+      return allowed.some(p => {
+        const pLower = p.toLowerCase().trim();
+        return pLower === userPost
+          || pLower.includes(userPost)
+          || userPost.includes(pLower);
+      });
+    });
+
+    res.json({ status: 'success', data: { workflows: visible } });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+// ── PATCH /workflows/:id/move-project ────────────────────────────────────────
+exports.moveToProject = async (req, res) => {
+  try {
+    const Workflow  = getWorkflowModel(req);
+    const { projectId } = req.body;
+    if (!projectId) return res.status(400).json({ status: 'fail', message: 'projectId requis' });
+    await Workflow.findByIdAndUpdate(req.params.id, { project: projectId });
+    await Workflow.updateMany({ templateRef: req.params.id }, { project: projectId });
+    res.json({ status: 'success', message: 'Workflow et instances déplacés' });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }
