@@ -9,13 +9,11 @@ const tableColumnSchema = new mongoose.Schema({
   width:    { type: String, default: 'auto' },
 }, { _id: false });
 
-// ── Schéma d'un champ global ─────────────────────
-// ✅ NOUVEAU : schéma partagé pour fields globaux et steps[].form.fields
-// APRÈS — ajouter options et columns
+// ── Schéma d'un champ ────────────────────────────
 const fieldSchema = new mongoose.Schema({
   id:         { type: String, required: true },
   label:      { type: String, required: true },
-  type:       {
+  type: {
     type: String,
     enum: [
       'text', 'number', 'date', 'select', 'textarea',
@@ -27,12 +25,11 @@ const fieldSchema = new mongoose.Schema({
   required:         { type: Boolean, default: false },
   readOnly:         { type: Boolean, default: false },
   autoSource:       { type: String,  default: '' },
-  options:          { type: [String], default: [] },        // ✅ AJOUTER — pour select
-  columns:          { type: [tableColumnSchema], default: [] }, // ✅ AJOUTER — pour table
+  options:          { type: [String], default: [] },
+  columns:          { type: [tableColumnSchema], default: [] },
   inheritTableFrom: { type: String,  default: '' },
   extraColumns:     { type: [tableColumnSchema], default: [] },
 }, { _id: false });
-
 
 // ── Étapes template ──────────────────────────────
 const templateStepSchema = new mongoose.Schema({
@@ -42,21 +39,17 @@ const templateStepSchema = new mongoose.Schema({
   postSlot:         { type: String, default: '' },
   assignedPost:     { type: String, default: '' },
   assignedPostName: { type: String, default: '' },
-  rempliPar:        { type: String, default: 'employe' }, // ✅ Qui remplit cette étape
-  delai:            { type: Number, default: 0 },   // ✅ En minutes (ex: 48h = 2880)
-
-  // ✅ form.fields = copie des champs globaux propagés par templateController
+  rempliPar:        { type: String, default: 'employe' },
+  delai:            { type: Number, default: 0 },
   form: {
     fields: { type: [fieldSchema], default: [] },
   },
-
   checklist: [{
     id:       { type: String },
     label:    { type: String, required: true },
     required: { type: Boolean, default: false },
     checked:  { type: Boolean, default: false },
   }],
-
   claims: {
     canValidate: { type: Boolean, default: true },
     canReject:   { type: Boolean, default: true },
@@ -64,7 +57,6 @@ const templateStepSchema = new mongoose.Schema({
     canView:     { type: Boolean, default: true },
   },
 }, { _id: false });
-
 
 // ── Workflow Template ────────────────────────────
 const workflowTemplateSchema = new mongoose.Schema({
@@ -82,16 +74,15 @@ const workflowTemplateSchema = new mongoose.Schema({
     enum: ['validation_confirmation', 'confirmation_only', 'automatic'],
     required: true,
   },
+
+  // ✅ FIX : docType est maintenant une référence vers DocumentType (collection dynamique)
+  // Plus d'enum String fixe ['DA','DAC','BS','DF','BR'] — l'admin crée ses propres types
   docType: {
-    type: String,
-    enum: ['', 'DA', 'DAC', 'BS', 'DF', 'BR'],
-    default: '',
+    type: mongoose.Schema.Types.ObjectId,
+    ref:  'DocumentType',
+    default: null,
   },
 
-  // ✅ CHAMPS GLOBAUX — définis une seule fois par l'admin
-  // Propagés automatiquement dans chaque étape via templateController
-  // Virtual field — non persisté en DB (les steps contiennent déjà la copie)
-  // On les stocke ici pour permettre l'édition future sans re-saisie
   fields: {
     type: [fieldSchema],
     default: [],

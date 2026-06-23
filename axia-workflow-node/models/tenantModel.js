@@ -4,7 +4,6 @@ const tenantSchema = new mongoose.Schema({
   companyName: {
     type: String, required: true, trim: true, unique: true
   },
-  // ✅ Matricule fiscal — identifiant unique société
   matriculeFiscal: {
     type: String,
     unique: true,
@@ -28,8 +27,8 @@ const tenantSchema = new mongoose.Schema({
   adminEmail: {
     type: String, required: true, lowercase: true, unique: true
   },
-  adminPassword: { type: String }, // ✅ stocker le hash pour init base
-  adminPasswordPlain: { type: String, select: false },
+  adminPassword: { type: String },
+  // ✅ FIX : adminPasswordPlain supprimé — ne jamais stocker de mot de passe en clair
   dbName: { type: String, required: true, unique: true },
 
   status: {
@@ -53,17 +52,15 @@ const tenantSchema = new mongoose.Schema({
     hasAnalytics: { type: Boolean, default: false },
   },
 
-  // ✅ Dates d'abonnement
   subscription: {
-    startDate:     { type: Date },
-    endDate:       { type: Date },
-    durationMonths:{ type: Number, default: 1 },
-    isActive:      { type: Boolean, default: false },
-    autoRenew:     { type: Boolean, default: false },
+    startDate:      { type: Date },
+    endDate:        { type: Date },
+    durationMonths: { type: Number, default: 1 },
+    isActive:       { type: Boolean, default: false },
+    autoRenew:      { type: Boolean, default: false },
   },
 
   isActive: { type: Boolean, default: false },
-
   rejectionReason: { type: String, default: '' },
 }, { timestamps: true });
 
@@ -79,7 +76,6 @@ tenantSchema.pre('save', async function () {
   if (!this.dbName && this.slug) {
     this.dbName = `tenant_${this.slug}`;
   }
-
 });
 
 module.exports = mongoose.model('Tenant', tenantSchema);

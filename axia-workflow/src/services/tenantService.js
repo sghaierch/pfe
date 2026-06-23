@@ -1,51 +1,40 @@
-// services/tenantService.js
-import axios from 'axios';
-
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3002';
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// ✅ FIX : utilise l'instance API commune (intercepteurs token + tenantId automatiques)
+// Plus d'axios direct ni de getAuthHeader() manuel
+import API from './api';
 
 const tenantService = {
   getAllTenants: () =>
-    axios.get(`${API}/tenants`, { headers: getAuthHeader() }),
+    API.get('/tenants'),
 
   getTenantById: (id) =>
-    axios.get(`${API}/tenants/${id}`, { headers: getAuthHeader() }),
+    API.get(`/tenants/${id}`),
 
-  // ✅ Point 1 — Approuver depuis la fiche tenant (avec durée)
   approveTenant: (id, durationMonths = 1) =>
-    axios.patch(`${API}/tenants/${id}/approve`, { durationMonths }, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/approve`, { durationMonths }),
 
-  // ✅ Point 1 — Rejeter depuis la fiche tenant (avec raison)
   rejectTenant: (id, reason = '') =>
-    axios.patch(`${API}/tenants/${id}/reject`, { reason }, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/reject`, { reason }),
 
   suspendTenant: (id) =>
-    axios.patch(`${API}/tenants/${id}/suspend`, {}, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/suspend`, {}),
 
   reactivateTenant: (id) =>
-    axios.patch(`${API}/tenants/${id}/reactivate`, {}, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/reactivate`, {}),
 
   deleteTenant: (id) =>
-    axios.delete(`${API}/tenants/${id}`, { headers: getAuthHeader() }),
+    API.delete(`/tenants/${id}`),
 
   changePlan: (id, planId) =>
-    axios.patch(`${API}/tenants/${id}/plan`, { planId }, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/plan`, { planId }),
 
-  // ✅ Modifier les limites manuellement
   updateLimits: (id, limits) =>
-    axios.patch(`${API}/tenants/${id}/limits`, limits, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/limits`, limits),
 
-  // ✅ Renvoyer les identifiants par email
   resendCredentials: (id) =>
-    axios.post(`${API}/tenants/${id}/resend-credentials`, {}, { headers: getAuthHeader() }),
+    API.post(`/tenants/${id}/resend-credentials`, {}),
 
-  // ✅ Renouveler l'abonnement (tenant expiré)
   renewSubscription: (id, durationMonths) =>
-    axios.patch(`${API}/tenants/${id}/renew`, { durationMonths }, { headers: getAuthHeader() }),
+    API.patch(`/tenants/${id}/renew`, { durationMonths }),
 };
 
 export default tenantService;

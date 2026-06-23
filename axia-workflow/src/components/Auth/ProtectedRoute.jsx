@@ -40,6 +40,21 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     }
   }
 
+  const userRole = getRoleName();
+  const path     = window.location.pathname;
+
+  if (userRole === 'employee' && path.startsWith('/dashboard/company')) {
+    return <Navigate to="/dashboard/employee" replace />;
+  }
+
+  if (userRole === 'company_admin' && path.startsWith('/dashboard/employee')) {
+    return <Navigate to="/dashboard/company" replace />;
+  }
+
+  if (userRole === 'superadmin' && !path.startsWith('/dashboard/superadmin')) {
+    return <Navigate to="/dashboard/superadmin" replace />;
+  }
+
   return children;
 };
 

@@ -29,7 +29,6 @@ const userSchema = new mongoose.Schema(
     },
     confirmPassword: {
       type: String,
-      // ✅ CORRIGÉ : plus required — les admins créés automatiquement n'ont pas ce champ
       validate: {
         validator: function (cPass) {
           if (!cPass) return true;
@@ -43,13 +42,6 @@ const userSchema = new mongoose.Schema(
       default: 'superadmin',
       enum: ['superadmin', 'admin', 'employee'],
     },
-//hethi tetna7a normalement
-    department: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Department"
-    },
-
-    
     jobTitle: String,
     phoneNumber: String,
     age: Number,

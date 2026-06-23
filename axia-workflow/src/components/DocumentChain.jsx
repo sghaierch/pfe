@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import workflowService from '../../../services/workflowService';
+import API from '../../../services/api';
 
-const TYPE_LABELS = {
-  DA:  { label: 'Demande achat',    color: '#4f46e5', bg: '#ede9fe' },
-  DAC: { label: 'Demande confirmée',color: '#0891b2', bg: '#e0f2fe' },
-  BS:  { label: 'Bon de sortie',    color: '#d97706', bg: '#fef3c7' },
-  DF:  { label: 'Facturation',      color: '#7c3aed', bg: '#ede9fe' },
-  BR:  { label: 'Bon de réception', color: '#059669', bg: '#dcfce7' },
-};
+// ✅ FIX : couleurs par défaut pour les types non reconnus
+const DEFAULT_COLORS = [
+  { color: '#4f46e5', bg: '#ede9fe' },
+  { color: '#0891b2', bg: '#e0f2fe' },
+  { color: '#d97706', bg: '#fef3c7' },
+  { color: '#7c3aed', bg: '#ede9fe' },
+  { color: '#059669', bg: '#dcfce7' },
+  { color: '#dc2626', bg: '#fee2e2' },
+];
 
 const STATUT_COLORS = {
   brouillon: { bg: '#f1f5f9', color: '#64748b' },
@@ -17,8 +20,28 @@ const STATUT_COLORS = {
 };
 
 const DocumentChain = ({ workflowId }) => {
-  const [chain,   setChain]   = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [chain,      setChain]      = useState([]);
+  const [typeMap,    setTypeMap]    = useState({});
+  const [loading,    setLoading]    = useState(true);
+
+  // ✅ FIX : charge les types de documents depuis l'API
+  useEffect(() => {
+    API.get('/document-types')
+      .then(res => {
+        const types = res.data?.data?.documentTypes || [];
+        const map = {};
+        types.forEach((t, i) => {
+          const colors = DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+          map[t.prefix] = {
+            label: t.name,
+            color: colors.color,
+            bg:    colors.bg,
+          };
+        });
+        setTypeMap(map);
+      })
+      .catch(() => setTypeMap({}));
+  }, []);
 
   useEffect(() => {
     workflowService.getDocumentChain(workflowId)
@@ -38,8 +61,12 @@ const DocumentChain = ({ workflowId }) => {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         {chain.map((doc, i) => {
-          const typeInfo   = TYPE_LABELS[doc.type]   || {};
+          // ✅ FIX : cherche le type par préfixe dynamiquement
+          const prefix    = doc.number?.replace(/\d.*/, '') || doc.type || '';
+          const typeInfo  = typeMap[prefix] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+          const typeLabel = typeInfo.label || prefix || 'Document';
           const statutInfo = STATUT_COLORS[doc.statut] || STATUT_COLORS.brouillon;
+
           return (
             <React.Fragment key={doc._id}>
               <div style={{ background: typeInfo.bg, borderRadius: '10px', padding: '12px 16px', minWidth: '140px' }}>
@@ -47,7 +74,7 @@ const DocumentChain = ({ workflowId }) => {
                   {doc.number}
                 </p>
                 <p style={{ margin: '0 0 6px', fontSize: '11px', color: typeInfo.color, opacity: 0.8 }}>
-                  {typeInfo.label}
+                  {typeLabel}
                 </p>
                 <span style={{ background: statutInfo.bg, color: statutInfo.color, padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>
                   {doc.statut}
@@ -61,7 +88,6 @@ const DocumentChain = ({ workflowId }) => {
         })}
       </div>
 
-      {/* Détail du dernier document actif */}
       {chain.length > 0 && (
         <div style={{ marginTop: '16px', padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
           <p style={{ margin: '0 0 8px', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>

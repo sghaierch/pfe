@@ -1,7 +1,8 @@
 import axios from 'axios';
 
+// ✅ FIX : baseURL depuis variable d'environnement — plus de hardcode localhost
 const API = axios.create({
-  baseURL: 'http://localhost:3002',
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3002',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -9,15 +10,13 @@ const API = axios.create({
 
 let isRefreshing = false;
 
-// ✅ Intercepteur REQUEST — envoie le token à chaque requête
+// ✅ FIX : une seule clé 'token' — plus de double clé token/accessToken
 API.interceptors.request.use(
   (config) => {
-    // ✅ FIX BUG 2 : on cherche le token dans 'token' ET 'accessToken' pour être sûr
-    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // ✅ FIX : on ajoute le tenantId si présent (parfois requis par le middleware)
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     if (user?.tenantId) {
       config.headers['x-tenant-id'] = user.tenantId;
@@ -27,7 +26,7 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ✅ Intercepteur RESPONSE
+// Intercepteur RESPONSE
 API.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -37,6 +36,7 @@ API.interceptors.response.use(
     const publicRoutes = [
       '/auth/signin',
       '/auth/signup',
+      '/auth/roles/public',
       '/tenants/request',
       '/plans/public',
       '/subscriptions/request',
@@ -54,7 +54,6 @@ API.interceptors.response.use(
         msg.includes('connecté')
       ) {
         localStorage.removeItem('token');
-        localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
