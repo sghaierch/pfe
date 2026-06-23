@@ -13,10 +13,16 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
-    "testPathIgnorePatterns": ["appTest.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "appTest.js"
+    ],
     "testTimeout": 30000,
-    "setupFiles": ["./tests/setup.js"],
+    "setupFiles": [
+      "./tests/setup.js"
+    ],
     "verbose": true,
     "forceExit": true,
     "clearMocks": true
@@ -37,6 +43,7 @@
     "node-fetch": "^2.7.0",
     "nodemailer": "^8.0.1",
     "stripe": "^22.2.0",
+    "validator": "^13.15.35",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
