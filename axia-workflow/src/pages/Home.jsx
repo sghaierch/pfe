@@ -39,7 +39,14 @@ const DURATIONS = [
   { value: 12, label: '12 mois', discount: '−20%', mult: 0.80 },
 ];
 
-const B = '#2563EB'; // blue primary
+// ✅ AJOUT : Listes secteurs et tailles
+const SECTORS = [
+  'Informatique / Tech', 'Finance / Banque', 'Santé', 'Éducation',
+  'BTP / Construction', 'Commerce / Retail', 'Industrie', 'Services', 'Autre',
+];
+const SIZES = ['1–10', '11–50', '51–200', '201–500', '500+'];
+
+const B = '#2563EB';
 
 // ── Payment Step ───────────────────────────────────────────────────────────
 const PaymentStep = ({ formData, plan, onSuccess, onBack }) => {
@@ -103,10 +110,12 @@ const SubscriptionModal = ({ plan, onClose }) => {
   const [paidAmount, setPaidAmount] = useState(null);
   const [error, setError]           = useState('');
 
+  // ✅ FIX : address ajouté dans le state initial
   const [form, setForm] = useState({
     companyName:'', contactEmail:'', contactPhone:'', matriculeFiscal:'',
     adminFirstName:'', adminLastName:'', adminEmail:'',
-    employeesCount:'', sector:'', message:'', durationMonths:1,
+    sector:'', employeesCount:'', address:'',
+    message:'', durationMonths:1,
   });
 
   const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -118,7 +127,7 @@ const SubscriptionModal = ({ plan, onClose }) => {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} .axia-modal-inp:focus{border-color:${B}!important;box-shadow:0 0 0 3px rgba(37,99,235,0.1)}`}</style>
       <div style={{ position:'fixed', inset:0, zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px', background:'rgba(15,23,42,0.5)', backdropFilter:'blur(6px)' }}
         onClick={e => e.target===e.currentTarget && onClose()}>
-        <div style={{ width:'100%', maxWidth:'500px', maxHeight:'90vh', overflowY:'auto', borderRadius:'16px', background:'#fff', boxShadow:'0 20px 60px rgba(0,0,0,0.2)', fontFamily:"'Inter',sans-serif" }}>
+        <div style={{ width:'100%', maxWidth:'520px', maxHeight:'90vh', overflowY:'auto', borderRadius:'16px', background:'#fff', boxShadow:'0 20px 60px rgba(0,0,0,0.2)', fontFamily:"'Inter',sans-serif" }}>
           {/* Blue top bar */}
           <div style={{ height:'4px', background:`linear-gradient(90deg, ${B}, #0EA5E9)`, borderRadius:'16px 16px 0 0' }} />
           <div style={{ padding:'24px' }}>
@@ -146,22 +155,70 @@ const SubscriptionModal = ({ plan, onClose }) => {
               </div>
             )}
 
-            {/* Form */}
+            {/* ── Form ── */}
             {step === 'form' && (
               <form onSubmit={e=>{e.preventDefault();setError('');setStep('payment')}}>
+
+                {/* Entreprise */}
                 <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'0.08em',margin:'0 0 10px'}}>Entreprise</p>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
-                  <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Nom *</label><input name="companyName" value={form.companyName} onChange={handleChange} placeholder="Acme Corp" required style={inp} className="axia-modal-inp"/></div>
-                  <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Matricule fiscal</label><input name="matriculeFiscal" value={form.matriculeFiscal} onChange={handleChange} placeholder="1234567A/P/M/000" style={inp} className="axia-modal-inp"/></div>
-                  <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Email *</label><input type="email" name="contactEmail" value={form.contactEmail} onChange={handleChange} placeholder="contact@acme.com" required style={inp} className="axia-modal-inp"/></div>
-                  <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Téléphone</label><input name="contactPhone" value={form.contactPhone} onChange={handleChange} placeholder="+216 XX XXX XXX" style={inp} className="axia-modal-inp"/></div>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Nom *</label>
+                    <input name="companyName" value={form.companyName} onChange={handleChange} placeholder="Acme Corp" required style={inp} className="axia-modal-inp"/>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Matricule fiscal</label>
+                    <input name="matriculeFiscal" value={form.matriculeFiscal} onChange={handleChange} placeholder="1234567A/P/M/000" style={inp} className="axia-modal-inp"/>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Email *</label>
+                    <input type="email" name="contactEmail" value={form.contactEmail} onChange={handleChange} placeholder="contact@acme.com" required style={inp} className="axia-modal-inp"/>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Téléphone</label>
+                    <input name="contactPhone" value={form.contactPhone} onChange={handleChange} placeholder="+216 XX XXX XXX" style={inp} className="axia-modal-inp"/>
+                  </div>
+                  {/* ✅ FIX : Secteur ajouté */}
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Secteur d'activité</label>
+                    <select name="sector" value={form.sector} onChange={handleChange} style={inp} className="axia-modal-inp">
+                      <option value="">— Sélectionner —</option>
+                      {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  {/* ✅ FIX : Nombre d'employés ajouté */}
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Nombre d'employés</label>
+                    <select name="employeesCount" value={form.employeesCount} onChange={handleChange} style={inp} className="axia-modal-inp">
+                      <option value="">— Sélectionner —</option>
+                      {SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  {/* ✅ FIX : Adresse ajoutée */}
+                  <div style={{gridColumn:'1/-1'}}>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Adresse</label>
+                    <input name="address" value={form.address} onChange={handleChange} placeholder="Adresse complète de la société" style={inp} className="axia-modal-inp"/>
+                  </div>
                 </div>
+
+                {/* Administrateur */}
                 <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'0.08em',margin:'14px 0 10px'}}>Administrateur</p>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
-                  <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Prénom *</label><input name="adminFirstName" value={form.adminFirstName} onChange={handleChange} placeholder="Prénom" required style={inp} className="axia-modal-inp"/></div>
-                  <div><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Nom *</label><input name="adminLastName" value={form.adminLastName} onChange={handleChange} placeholder="Nom" required style={inp} className="axia-modal-inp"/></div>
-                  <div style={{gridColumn:'1/-1'}}><label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Email admin *</label><input type="email" name="adminEmail" value={form.adminEmail} onChange={handleChange} placeholder="admin@acme.com" required style={inp} className="axia-modal-inp"/></div>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Prénom *</label>
+                    <input name="adminFirstName" value={form.adminFirstName} onChange={handleChange} placeholder="Prénom" required style={inp} className="axia-modal-inp"/>
+                  </div>
+                  <div>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Nom *</label>
+                    <input name="adminLastName" value={form.adminLastName} onChange={handleChange} placeholder="Nom" required style={inp} className="axia-modal-inp"/>
+                  </div>
+                  <div style={{gridColumn:'1/-1'}}>
+                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Email admin *</label>
+                    <input type="email" name="adminEmail" value={form.adminEmail} onChange={handleChange} placeholder="admin@acme.com" required style={inp} className="axia-modal-inp"/>
+                  </div>
                 </div>
+
+                {/* Durée */}
                 <p style={{fontSize:'11px',fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'0.08em',margin:'14px 0 10px'}}>Durée</p>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'7px',marginBottom:'14px'}}>
                   {DURATIONS.map(d=>{
@@ -173,10 +230,13 @@ const SubscriptionModal = ({ plan, onClose }) => {
                     </div>;
                   })}
                 </div>
+
+                {/* Message */}
                 <div style={{marginBottom:'16px'}}>
                   <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#475569',marginBottom:'4px'}}>Message (optionnel)</label>
                   <textarea name="message" value={form.message} onChange={handleChange} placeholder="Vos besoins spécifiques…" rows={3} style={{...inp,resize:'vertical'}} className="axia-modal-inp"/>
                 </div>
+
                 {error && <div style={{padding:'10px',borderRadius:'8px',marginBottom:'12px',background:'#FEF2F2',border:'1px solid #FECACA',color:'#DC2626',fontSize:'13px'}}>{error}</div>}
                 <button type="submit" style={{width:'100%',padding:'12px',borderRadius:'8px',border:'none',background:B,color:'#fff',fontSize:'14px',fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',boxShadow:'0 4px 14px rgba(37,99,235,0.3)',fontFamily:"'Inter',sans-serif"}}>
                   Continuer vers le paiement <IconArrowR/>
@@ -240,6 +300,7 @@ const Home = () => {
         .plan-cta:hover{opacity:0.92!important;transform:translateY(-1px)}
       `}</style>
       <Navbar />
+
       {/* ── Hero ── */}
       <section style={{ paddingTop:'140px', paddingBottom:'100px', textAlign:'center', background:'linear-gradient(180deg, #F0F7FF 0%, #fff 100%)' }}>
         <div style={{ maxWidth:'680px', margin:'0 auto', padding:'0 24px', animation:'fadeUp 0.5s ease-out' }}>
@@ -262,6 +323,7 @@ const Home = () => {
           </div>
         </div>
       </section>
+
       {/* ── Features ── */}
       <section id="features" style={{ padding:'80px 24px', background:'#fff', borderTop:'1px solid #F1F5F9' }}>
         <div style={{ maxWidth:'1100px', margin:'0 auto' }}>

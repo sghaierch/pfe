@@ -452,7 +452,7 @@ exports.createPaymentIntent = async (req, res) => {
       companyName, matriculeFiscal, contactEmail, contactPhone,
       adminFirstName, adminLastName, adminEmail,
       planId, durationMonths = 1,
-      sector, employeesCount, message,
+      sector, employeesCount, address, message, // ✅ FIX : address ajouté
     } = req.body;
 
     // Validation
@@ -487,6 +487,7 @@ exports.createPaymentIntent = async (req, res) => {
         adminFirstName, adminLastName, adminEmail,
         planId, durationMonths: String(durationMonths),
         sector: sector || '', employeesCount: employeesCount || '',
+        address: address || '', // ✅ FIX : address ajouté dans les metadata Stripe
         message: message || '',
       },
     });
@@ -533,14 +534,15 @@ exports.stripeWebhook = async (req, res) => {
         companyName:     m.companyName,
         matriculeFiscal: m.matriculeFiscal || undefined,
         contactEmail:    m.contactEmail,
-        contactPhone:    m.contactPhone   || undefined,
+        contactPhone:    m.contactPhone    || undefined,
         adminFirstName:  m.adminFirstName,
         adminLastName:   m.adminLastName,
         adminEmail:      m.adminEmail.toLowerCase(),
         adminPassword:   hashedPwd,
         adminPasswordPlain: plainPwd,
-        sector:          m.sector         || undefined,
-        employeesCount:  m.employeesCount || undefined,
+        sector:          m.sector          || undefined,
+        employeesCount:  m.employeesCount  || undefined,
+        address:         m.address         || undefined, // ✅ FIX : champ address ajouté
         slug,
         dbName,
         status:  'pending',
