@@ -123,18 +123,19 @@ const initTenantDb = async (tenant) => {
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
     const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,          // SSL
-      family: 4,             // Force IPv4 — important sur Render
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASSWORD_APPLICATION,
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
+  host: 'smtp.gmail.com',
+  port: 587,           // ← change 465 → 587
+  secure: false,       // ← change true → false (STARTTLS)
+  family: 4,           // ← force IPv4
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD_APPLICATION,
+  },
+  tls: {
+    rejectUnauthorized: false,
+    ciphers: 'SSLv3'
+  }
+});
 
     await transporter.verify(); // test la connexion avant envoi
 
