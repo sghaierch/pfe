@@ -11,7 +11,8 @@ const safeModel = (conn, name, schema) => {
   catch { return conn.model(name, schema); }
 };
 
-// ── Initialiser la base tenant avec rôles + admin ─────────────────────────────
+// Remplace initTenantDb dans subscriptionController.js ET tenantController.js
+
 const initTenantDb = async (tenant) => {
   try {
     const rawUri = process.env.DATABASE_URL.replace('<db_password>', process.env.DATABASE_PASSWORD);
@@ -25,78 +26,120 @@ const initTenantDb = async (tenant) => {
       setTimeout(() => reject(new Error('Timeout connexion tenant')), 10000);
     });
 
-const { Schema } = mongoose;
+    const { Schema } = mongoose;
 
-const roleSchema = new Schema({
-  name:        { type: String, required: true, unique: true },
-  permissions: { type: [String], default: [] },
-}, { timestamps: true });
+    // ✅ FIX : role comme String enum (compatible avec authController)
+    const userSchema = new Schema({
+      firstName:          { type: String },
+      lastName:           { type: String },
+      email:              { type: String, required: true, unique: true },
+      password:           { type: String, select: false },
+      role:               {
+        type: String,
+        enum: ['company_admin', 'manager', 'employee'],
+        default: 'employee'
+      },
+      isActive:           { type: Boolean, default: true },
+      isCompanyAdmin:     { type: Boolean, default: false },
+      mustChangePassword: { type: Boolean, default: true },
+      jobTitle:           { type: String },
+      department:         { type: Schema.Types.ObjectId, ref: 'Department' },
+      pushSubscription: {
+        endpoint: String,
+        keys: { p256dh: String, auth: String },
+      },
+      notificationPreferences: {
+        email: { type: Boolean, default: true },
+        push:  { type: Boolean, default: false },
+      },
+    }, { timestamps: true });
 
-const userSchema = new Schema({
-  firstName:          { type: String },
-  lastName:           { type: String },
-  email:              { type: String, required: true, unique: true },
-  password:           { type: String },
-  role:               { type: Schema.Types.ObjectId, ref: 'Role' },
-  isActive:           { type: Boolean, default: true },
-  isCompanyAdmin:     { type: Boolean, default: false },
-  mustChangePassword: { type: Boolean, default: false },
-  jobTitle:           { type: String },
-}, { timestamps: true });
-    const Role = safeModel(conn, 'Role', roleSchema);
-    const User = safeModel(conn, 'User', userSchema);
+    // ✅ Hash automatique du mot de passe (pre save)
+    userSchema.pre('save', async function() {
+      if (!this.isModified('password')) return;
+      const bcrypt = require('bcryptjs');
+      this.password = await bcrypt.hash(this.password, 10);
+    });
 
-    // Créer les 3 rôles par défaut
-    const roleNames   = ['company_admin', 'manager', 'employee'];
-    const createdRoles = {};
-    for (const name of roleNames) {
-      let role = await Role.findOne({ name });
-      if (!role) role = await Role.create({ name, permissions: [] });
-      createdRoles[name] = role._id;
+    userSchema.methods.comparePassword = async function(entered) {
+      const bcrypt = require('bcryptjs');
+      return await bcrypt.compare(entered, this.password);
+    };
+
+    // ✅ Département
+    const departmentSchema = new Schema({
+      name:        { type: String, required: true },
+      description: { type: String },
+    }, { timestamps: true });
+
+    const safeModel = (conn, name, schema) => {
+      try { return conn.model(name); }
+      catch { return conn.model(name, schema); }
+    };
+
+    const User       = safeModel(conn, 'User', userSchema);
+    const Department = safeModel(conn, 'Department', departmentSchema);
+
+    // Créer département par défaut
+    let defaultDept = await Department.findOne({ name: 'Direction' });
+    if (!defaultDept) {
+      defaultDept = await Department.create({
+        name: 'Direction',
+        description: 'Département de direction générale',
+      });
     }
 
-    // Créer l'admin de la société
+    // ✅ Créer l'admin de la société
     if (tenant.adminEmail) {
       const existing = await User.findOne({ email: tenant.adminEmail });
       if (!existing) {
         const pwd = tenant.adminPasswordPlain || 'Admin@1234';
         await User.create({
-          firstName:      tenant.adminFirstName || 'Admin',
-          lastName:       tenant.adminLastName  || tenant.companyName,
-          email:          tenant.adminEmail,
-          password:       pwd,
-          role:           createdRoles['company_admin'],
-          isActive:       true,
-          isCompanyAdmin: true,
+          firstName:          tenant.adminFirstName || 'Admin',
+          lastName:           tenant.adminLastName  || tenant.companyName,
+          email:              tenant.adminEmail,
+          password:           pwd,          // sera hashé par pre('save')
+          role:               'company_admin',
+          isActive:           true,
+          isCompanyAdmin:     true,
           mustChangePassword: true,
-          jobTitle:       'Directeur',
+          jobTitle:           'Directeur Général',
+          department:         defaultDept._id,
         });
       }
     }
 
     await conn.close();
-    console.log('✅ Base tenant initialisée :', tenant.dbName);
+    console.log('[DB] Base tenant initialisée :', tenant.dbName);
     return true;
   } catch (err) {
-    console.error('❌ initTenantDb:', err.message);
+    console.error('[DB] initTenantDb erreur :', err.message);
     return false;
   }
 };
 
-// ── Envoyer email identifiants au nouvel admin ────────────────────────────────
+// Remplace la fonction sendCredentialsEmail dans subscriptionController.js ET tenantController.js
+
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  family: 4,
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.PASSWORD_APPLICATION,
-  },
-});
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,          // SSL
+      family: 4,             // Force IPv4 — important sur Render
+      auth: {
+        user: process.env.EMAIL,
+        pass: process.env.PASSWORD_APPLICATION,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    await transporter.verify(); // test la connexion avant envoi
 
     await transporter.sendMail({
-      from:    `"${process.env.APP_NAME || 'Support'}" <${process.env.EMAIL}>`,
+      from:    `"Axia Workflow" <${process.env.EMAIL}>`,
       to:      tenant.adminEmail,
       subject: `✅ Votre compte ${tenant.companyName} est activé`,
       html: `
@@ -116,22 +159,19 @@ const transporter = nodemailer.createTransport({
           </table>
           <p>📋 Détails de votre abonnement :</p>
           <ul style="color:#374151;line-height:1.8;">
-            <li>Plan : <strong>${plan.name}</strong></li>
-            <li>Durée : <strong>${months} mois</strong></li>
+            <li>Plan : <strong>${plan?.name || '—'}</strong></li>
+            ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
           </ul>
           <p style="margin-top:20px;padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
             🔐 <strong>Important :</strong> Pensez à changer votre mot de passe lors de votre première connexion.
-          </p>
-          <p style="color:#6b7280;font-size:12px;margin-top:24px;">
-            Si vous avez des questions, contactez notre support.
           </p>
         </div>
       `,
     });
 
-    console.log('📧 Email identifiants envoyé à :', tenant.adminEmail);
+    console.log('[EMAIL] Identifiants envoyés à :', tenant.adminEmail);
   } catch (emailErr) {
-    console.error('⚠️ Email non envoyé (non bloquant) :', emailErr.message);
+    console.error('[EMAIL] Erreur envoi :', emailErr.message);
   }
 };
 
