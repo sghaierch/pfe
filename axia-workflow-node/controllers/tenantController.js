@@ -22,8 +22,24 @@ const initTenantDb = async (tenant) => {
       setTimeout(() => reject(new Error('Timeout connexion tenant')), 10000);
     });
 
-    const roleSchema = require('../models/roleModel').schema;
-    const userSchema = require('../models/userModel').schema;
+const { Schema } = mongoose;
+
+const roleSchema = new Schema({
+  name:        { type: String, required: true, unique: true },
+  permissions: { type: [String], default: [] },
+}, { timestamps: true });
+
+const userSchema = new Schema({
+  firstName:          { type: String },
+  lastName:           { type: String },
+  email:              { type: String, required: true, unique: true },
+  password:           { type: String },
+  role:               { type: Schema.Types.ObjectId, ref: 'Role' },
+  isActive:           { type: Boolean, default: true },
+  isCompanyAdmin:     { type: Boolean, default: false },
+  mustChangePassword: { type: Boolean, default: false },
+  jobTitle:           { type: String },
+}, { timestamps: true });
     const Role = safeModel(conn, 'Role', roleSchema);
     const User = safeModel(conn, 'User', userSchema);
 
