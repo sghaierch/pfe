@@ -83,6 +83,7 @@ const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
+      family: 4,
       auth: {
         user: process.env.EMAIL,
         pass: process.env.PASSWORD_APPLICATION,
