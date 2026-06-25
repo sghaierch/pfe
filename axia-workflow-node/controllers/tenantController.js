@@ -120,40 +120,41 @@ const initTenantDb = async (tenant) => {
 
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
-    const SibApiV3Sdk = require('@getbrevo/brevo');
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    
-    apiInstance.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
+    const Brevo = require('@getbrevo/brevo');
+    const client = Brevo.ApiClient.instance;
+    client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
 
-    await apiInstance.sendTransacEmail({
-      sender: { name: 'Axia Workflow', email: process.env.EMAIL },
-      to: [{ email: tenant.adminEmail, name: tenant.adminFirstName }],
-      subject: `✅ Votre compte ${tenant.companyName} est activé`,
-      htmlContent: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
-          <h2 style="color:#166534;">✅ Bienvenue, ${tenant.adminFirstName} !</h2>
-          <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
-          <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-            <tr style="background:#f0fdf4;">
-              <td style="padding:10px 16px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
-              <td style="padding:10px 16px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 16px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
-              <td style="padding:10px 16px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
-            </tr>
-          </table>
-          <ul>
-            <li>Plan : <strong>${plan?.name || '—'}</strong></li>
-            ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
-          </ul>
-          <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
-            🔐 Changez votre mot de passe lors de votre première connexion.
-          </p>
-        </div>
-      `,
-    });
+    const apiInstance = new Brevo.TransactionalEmailsApi();
 
+    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+    sendSmtpEmail.sender = { name: 'Axia Workflow', email: process.env.EMAIL };
+    sendSmtpEmail.to = [{ email: tenant.adminEmail, name: tenant.adminFirstName }];
+    sendSmtpEmail.subject = `✅ Votre compte ${tenant.companyName} est activé`;
+    sendSmtpEmail.htmlContent = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+        <h2 style="color:#166534;">✅ Bienvenue, ${tenant.adminFirstName} !</h2>
+        <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+          <tr style="background:#f0fdf4;">
+            <td style="padding:10px 16px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
+            <td style="padding:10px 16px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
+            <td style="padding:10px 16px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
+          </tr>
+        </table>
+        <ul>
+          <li>Plan : <strong>${plan?.name || '—'}</strong></li>
+          ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
+        </ul>
+        <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
+          🔐 Changez votre mot de passe lors de votre première connexion.
+        </p>
+      </div>
+    `;
+
+    await apiInstance.sendTransacEmail(sendSmtpEmail);
     console.log('[EMAIL] Identifiants envoyés via Brevo à :', tenant.adminEmail);
   } catch (emailErr) {
     console.error('[EMAIL] Erreur Brevo :', emailErr.message);
