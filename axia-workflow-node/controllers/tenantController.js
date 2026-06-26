@@ -86,7 +86,6 @@ const User = safeModel(conn, 'User', userSchema);
 // ── Envoyer email identifiants (mutualisé avec subscriptionController) ────────
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
-    const nodemailer = require('nodemailer');
     const { google } = require('googleapis');
 
     const oauth2Client = new google.auth.OAuth2(
@@ -96,55 +95,59 @@ const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
     );
 
     oauth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
-    const accessToken = await oauth2Client.getAccessToken();
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        type:         'OAuth2',
-        user:         process.env.EMAIL,
-        clientId:     process.env.GMAIL_CLIENT_ID,
-        clientSecret: process.env.GMAIL_CLIENT_SECRET,
-        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
-        accessToken:  accessToken.token,
-      },
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    const htmlContent = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+        <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
+        <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+          <tr style="background:#f0fdf4;">
+            <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
+            <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
+            <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
+          </tr>
+        </table>
+        <ul style="color:#374151;line-height:1.8;">
+          <li>Plan : <strong>${plan?.name || '—'}</strong></li>
+          ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
+        </ul>
+        <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
+          Changez votre mot de passe lors de votre première connexion.
+        </p>
+      </div>
+    `;
+
+    const message = [
+      `From: "Axia Workflow" <${process.env.EMAIL}>`,
+      `To: ${tenant.adminEmail}`,
+      `Subject: Votre compte ${tenant.companyName} est activé`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      htmlContent,
+    ].join('\n');
+
+    const encodedMessage = Buffer.from(message)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw: encodedMessage },
     });
 
-    await transporter.sendMail({
-      from:    `"Axia Workflow" <${process.env.EMAIL}>`,
-      to:      tenant.adminEmail,
-      subject: `Votre compte ${tenant.companyName} est activé`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
-          <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
-          <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
-          <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-            <tr style="background:#f0fdf4;">
-              <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
-              <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
-              <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
-            </tr>
-          </table>
-          <ul style="color:#374151;line-height:1.8;">
-            <li>Plan : <strong>${plan?.name || '—'}</strong></li>
-            ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
-          </ul>
-          <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
-            Changez votre mot de passe lors de votre première connexion.
-          </p>
-        </div>
-      `,
-    });
-
-    console.log('[EMAIL] Envoyé via Gmail OAuth2 à :', tenant.adminEmail);
+    console.log('[EMAIL] Envoyé via Gmail API à :', tenant.adminEmail);
   } catch (err) {
-    console.error('[EMAIL] Erreur Gmail OAuth2 :', err.message);
+    console.error('[EMAIL] Erreur Gmail API :', err.message);
   }
 };
-
 // ── GET tous les tenants ──────────────────────────────────────────────────────
 exports.getAllTenants = async (req, res) => {
   try {
