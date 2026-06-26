@@ -270,6 +270,9 @@ exports.approveSubscription = async (req, res) => {
     const tenant = await Tenant.findById(sub.tenant).select('+adminPasswordPlain');
     if (!tenant) return res.status(404).json({ status: 'fail', message: 'Tenant non trouvé' });
 
+    // ✅ Sauvegarder plainPwd AVANT tenant.save()
+    const plainPwd = tenant.adminPasswordPlain;
+
     const months    = sub.durationMonths || plan.durationMonths || 1;
     const startDate = new Date();
     const endDate   = new Date(startDate);
@@ -295,13 +298,13 @@ exports.approveSubscription = async (req, res) => {
       hasAI:        plan.hasAI        || false,
       hasAnalytics: plan.hasAnalytics || false,
     };
-    await tenant.save();
+    await tenant.save(); // ← après ce save, adminPasswordPlain disparaît de l'objet
 
     if (isFirstTime) {
       console.log('[SUB] Première activation — initialisation de la base...');
       await initTenantDb(tenant);
 
-      const plainPwd = tenant.adminPasswordPlain;
+      // ✅ plainPwd déjà sauvegardé avant tenant.save()
       await sendCredentialsEmail(tenant, plainPwd, plan, months);
 
       await Tenant.findByIdAndUpdate(tenant._id, { $unset: { adminPasswordPlain: '' } });
@@ -315,7 +318,15 @@ exports.approveSubscription = async (req, res) => {
       message: isFirstTime
         ? `Abonnement approuvé ! Base créée pour ${tenant.companyName}`
         : `Abonnement renouvelé pour ${tenant.companyName}`,
-      data: { subscription: sub, tenant: { companyName: tenant.companyName, status: tenant.status, endDate: sub.endDate, durationMonths: months } }
+      data: {
+        subscription: sub,
+        tenant: {
+          companyName:    tenant.companyName,
+          status:         tenant.status,
+          endDate:        sub.endDate,
+          durationMonths: months,
+        }
+      }
     });
   } catch (err) {
     console.error('[SUB] approveSubscription:', err.message);

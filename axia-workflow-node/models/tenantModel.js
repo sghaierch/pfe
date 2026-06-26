@@ -28,8 +28,7 @@ const tenantSchema = new mongoose.Schema({
     type: String, required: true, lowercase: true, unique: true
   },
   adminPassword: { type: String },
-  // ✅ FIX : adminPasswordPlain supprimé — ne jamais stocker de mot de passe en clair
-  dbName: { type: String, required: true, unique: true },
+  adminPasswordPlain: { type: String, select: false },  dbName: { type: String, required: true, unique: true },
 
   status: {
     type: String,
