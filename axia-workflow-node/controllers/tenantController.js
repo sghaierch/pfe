@@ -9,8 +9,6 @@ const safeModel = (conn, name, schema) => {
   catch { return conn.model(name, schema); }
 };
 
-// Remplace initTenantDb dans subscriptionController.js ET tenantController.js
-
 const initTenantDb = async (tenant) => {
   try {
     const rawUri = process.env.DATABASE_URL.replace('<db_password>', process.env.DATABASE_PASSWORD);
@@ -24,137 +22,126 @@ const initTenantDb = async (tenant) => {
       setTimeout(() => reject(new Error('Timeout connexion tenant')), 10000);
     });
 
-    const { Schema } = mongoose;
+const { Schema } = mongoose;
+const roleSchema = new Schema({
+  name: { type: String, required: true, unique: true },
+  permissions: { type: [String], default: [] },
+}, { timestamps: true });
 
-    // ✅ FIX : role comme String enum (compatible avec authController)
-    const userSchema = new Schema({
-      firstName:          { type: String },
-      lastName:           { type: String },
-      email:              { type: String, required: true, unique: true },
-      password:           { type: String, select: false },
-      role:               {
-        type: String,
-        enum: ['company_admin', 'manager', 'employee'],
-        default: 'employee'
-      },
-      isActive:           { type: Boolean, default: true },
-      isCompanyAdmin:     { type: Boolean, default: false },
-      mustChangePassword: { type: Boolean, default: true },
-      jobTitle:           { type: String },
-      department:         { type: Schema.Types.ObjectId, ref: 'Department' },
-      pushSubscription: {
-        endpoint: String,
-        keys: { p256dh: String, auth: String },
-      },
-      notificationPreferences: {
-        email: { type: Boolean, default: true },
-        push:  { type: Boolean, default: false },
-      },
-    }, { timestamps: true });
+const userSchema = new Schema({
+  firstName: { type: String },
+  lastName:  { type: String },
+  email:     { type: String, required: true, unique: true },
+  password:  { type: String, select: false },
+  role:      { type: String, enum: ['company_admin', 'manager', 'employee'], default: 'employee' },
+  isActive:  { type: Boolean, default: true },
+  isCompanyAdmin: { type: Boolean, default: false },
+  mustChangePassword: { type: Boolean, default: true },
+  jobTitle:  { type: String },
+}, { timestamps: true });
 
-    // ✅ Hash automatique du mot de passe (pre save)
-    userSchema.pre('save', async function() {
-      if (!this.isModified('password')) return;
-      const bcrypt = require('bcryptjs');
-      this.password = await bcrypt.hash(this.password, 10);
-    });
+userSchema.pre('save', async function() {
+  if (!this.isModified('password')) return;
+  this.password = await require('bcryptjs').hash(this.password, 10);
+});
 
-    userSchema.methods.comparePassword = async function(entered) {
-      const bcrypt = require('bcryptjs');
-      return await bcrypt.compare(entered, this.password);
-    };
+const Role = safeModel(conn, 'Role', roleSchema);
+const User = safeModel(conn, 'User', userSchema);
 
-    // ✅ Département
-    const departmentSchema = new Schema({
-      name:        { type: String, required: true },
-      description: { type: String },
-    }, { timestamps: true });
-
-    const safeModel = (conn, name, schema) => {
-      try { return conn.model(name); }
-      catch { return conn.model(name, schema); }
-    };
-
-    const User       = safeModel(conn, 'User', userSchema);
-    const Department = safeModel(conn, 'Department', departmentSchema);
-
-    // Créer département par défaut
-    let defaultDept = await Department.findOne({ name: 'Direction' });
-    if (!defaultDept) {
-      defaultDept = await Department.create({
-        name: 'Direction',
-        description: 'Département de direction générale',
-      });
+    const roleNames    = ['company_admin', 'manager', 'employee'];
+    const createdRoles = {};
+    for (const name of roleNames) {
+      let role = await Role.findOne({ name });
+      if (!role) role = await Role.create({ name, permissions: [] });
+      createdRoles[name] = role._id;
     }
 
-    // ✅ Créer l'admin de la société
     if (tenant.adminEmail) {
       const existing = await User.findOne({ email: tenant.adminEmail });
       if (!existing) {
-        const pwd = tenant.adminPasswordPlain || 'Admin@1234';
+        const pwd = tenant.adminPasswordPlain || tenant.adminPassword || 'Admin@1234';
         await User.create({
-          firstName:          tenant.adminFirstName || 'Admin',
-          lastName:           tenant.adminLastName  || tenant.companyName,
-          email:              tenant.adminEmail,
-          password:           pwd,          // sera hashé par pre('save')
-          role:               'company_admin',
-          isActive:           true,
-          isCompanyAdmin:     true,
+          firstName:      tenant.adminFirstName || 'Admin',
+          lastName:       tenant.adminLastName  || tenant.companyName,
+          email:          tenant.adminEmail,
+          password:       pwd,
+          role:           createdRoles['company_admin'],
+          isActive:       true,
+          isCompanyAdmin: true,
           mustChangePassword: true,
-          jobTitle:           'Directeur Général',
-          department:         defaultDept._id,
+          jobTitle:       'Directeur',
         });
       }
     }
 
     await conn.close();
-    console.log('[DB] Base tenant initialisée :', tenant.dbName);
+    console.log('✅ Base tenant initialisée :', tenant.dbName);
     return true;
   } catch (err) {
-    console.error('[DB] initTenantDb erreur :', err.message);
+    console.error('❌ initTenantDb:', err.message);
     return false;
   }
 };
 
-
+// ── Envoyer email identifiants (mutualisé avec subscriptionController) ────────
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
-    const Mailjet = require('node-mailjet');
-    const mailjet = Mailjet.apiConnect(
-      process.env.MAILJET_API_KEY,
-      process.env.MAILJET_SECRET_KEY
+    const nodemailer = require('nodemailer');
+    const { google } = require('googleapis');
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      'https://developers.google.com/oauthplayground'
     );
 
-    await mailjet.post('send', { version: 'v3.1' }).request({
-      Messages: [{
-        From: { Email: process.env.EMAIL, Name: 'Axia Workflow' },
-        To:   [{ Email: tenant.adminEmail, Name: tenant.adminFirstName }],
-        Subject: `Votre compte ${tenant.companyName} est activé`,
-        HTMLPart: `
-          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
-            <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
-            <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
-            <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-              <tr style="background:#f0fdf4;">
-                <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
-                <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
-              </tr>
-              <tr>
-                <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
-                <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
-              </tr>
-            </table>
-            <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
-              Changez votre mot de passe lors de votre première connexion.
-            </p>
-          </div>
-        `,
-      }]
+    oauth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+    const accessToken = await oauth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type:         'OAuth2',
+        user:         process.env.EMAIL,
+        clientId:     process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+        accessToken:  accessToken.token,
+      },
     });
 
-    console.log('[EMAIL] Envoyé via Mailjet à :', tenant.adminEmail);
+    await transporter.sendMail({
+      from:    `"Axia Workflow" <${process.env.EMAIL}>`,
+      to:      tenant.adminEmail,
+      subject: `Votre compte ${tenant.companyName} est activé`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+          <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
+          <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
+          <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+            <tr style="background:#f0fdf4;">
+              <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
+              <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
+              <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
+            </tr>
+          </table>
+          <ul style="color:#374151;line-height:1.8;">
+            <li>Plan : <strong>${plan?.name || '—'}</strong></li>
+            ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
+          </ul>
+          <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
+            Changez votre mot de passe lors de votre première connexion.
+          </p>
+        </div>
+      `,
+    });
+
+    console.log('[EMAIL] Envoyé via Gmail OAuth2 à :', tenant.adminEmail);
   } catch (err) {
-    console.error('[EMAIL] Erreur Mailjet :', err.message);
+    console.error('[EMAIL] Erreur Gmail OAuth2 :', err.message);
   }
 };
 

@@ -5,14 +5,14 @@ const bcrypt       = require('bcryptjs');
 const mongoose     = require('mongoose');
 const nodemailer   = require('nodemailer');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const safeModel = (conn, name, schema) => {
   try { return conn.model(name); }
   catch { return conn.model(name, schema); }
 };
 
-// Remplace initTenantDb dans subscriptionController.js ET tenantController.js
-
+// ── Initialiser la base tenant ────────────────────────────────────────────────
 const initTenantDb = async (tenant) => {
   try {
     const rawUri = process.env.DATABASE_URL.replace('<db_password>', process.env.DATABASE_PASSWORD);
@@ -28,68 +28,26 @@ const initTenantDb = async (tenant) => {
 
     const { Schema } = mongoose;
 
-    // ✅ FIX : role comme String enum (compatible avec authController)
     const userSchema = new Schema({
       firstName:          { type: String },
       lastName:           { type: String },
       email:              { type: String, required: true, unique: true },
       password:           { type: String, select: false },
-      role:               {
-        type: String,
-        enum: ['company_admin', 'manager', 'employee'],
-        default: 'employee'
-      },
+      role:               { type: String, enum: ['company_admin', 'manager', 'employee'], default: 'employee' },
       isActive:           { type: Boolean, default: true },
       isCompanyAdmin:     { type: Boolean, default: false },
       mustChangePassword: { type: Boolean, default: true },
       jobTitle:           { type: String },
-      department:         { type: Schema.Types.ObjectId, ref: 'Department' },
-      pushSubscription: {
-        endpoint: String,
-        keys: { p256dh: String, auth: String },
-      },
-      notificationPreferences: {
-        email: { type: Boolean, default: true },
-        push:  { type: Boolean, default: false },
-      },
     }, { timestamps: true });
 
-    // ✅ Hash automatique du mot de passe (pre save)
     userSchema.pre('save', async function() {
       if (!this.isModified('password')) return;
-      const bcrypt = require('bcryptjs');
-      this.password = await bcrypt.hash(this.password, 10);
+      this.password = await require('bcryptjs').hash(this.password, 10);
     });
 
-    userSchema.methods.comparePassword = async function(entered) {
-      const bcrypt = require('bcryptjs');
-      return await bcrypt.compare(entered, this.password);
-    };
+    const User = safeModel(conn, 'User', userSchema);
 
-    // ✅ Département
-    const departmentSchema = new Schema({
-      name:        { type: String, required: true },
-      description: { type: String },
-    }, { timestamps: true });
-
-    const safeModel = (conn, name, schema) => {
-      try { return conn.model(name); }
-      catch { return conn.model(name, schema); }
-    };
-
-    const User       = safeModel(conn, 'User', userSchema);
-    const Department = safeModel(conn, 'Department', departmentSchema);
-
-    // Créer département par défaut
-    let defaultDept = await Department.findOne({ name: 'Direction' });
-    if (!defaultDept) {
-      defaultDept = await Department.create({
-        name: 'Direction',
-        description: 'Département de direction générale',
-      });
-    }
-
-    // ✅ Créer l'admin de la société
+    // ✅ Créer l'admin de la société avec role String
     if (tenant.adminEmail) {
       const existing = await User.findOne({ email: tenant.adminEmail });
       if (!existing) {
@@ -98,13 +56,12 @@ const initTenantDb = async (tenant) => {
           firstName:          tenant.adminFirstName || 'Admin',
           lastName:           tenant.adminLastName  || tenant.companyName,
           email:              tenant.adminEmail,
-          password:           pwd,          // sera hashé par pre('save')
-          role:               'company_admin',
+          password:           pwd,
+          role:               'company_admin', // ✅ String enum, pas ObjectId
           isActive:           true,
           isCompanyAdmin:     true,
           mustChangePassword: true,
-          jobTitle:           'Directeur Général',
-          department:         defaultDept._id,
+          jobTitle:           'Directeur',
         });
       }
     }
@@ -118,49 +75,67 @@ const initTenantDb = async (tenant) => {
   }
 };
 
-
+// ── Envoyer email identifiants ────────────────────────────────────────────────
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
-    const Mailjet = require('node-mailjet');
-    const mailjet = Mailjet.apiConnect(
-      process.env.MAILJET_API_KEY,
-      process.env.MAILJET_SECRET_KEY
+    const nodemailer = require('nodemailer');
+    const { google } = require('googleapis');
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      'https://developers.google.com/oauthplayground'
     );
 
-    await mailjet.post('send', { version: 'v3.1' }).request({
-      Messages: [{
-        From: { Email: process.env.EMAIL, Name: 'Axia Workflow' },
-        To:   [{ Email: tenant.adminEmail, Name: tenant.adminFirstName }],
-        Subject: `Votre compte ${tenant.companyName} est activé`,
-        HTMLPart: `
-          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
-            <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
-            <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
-            <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-              <tr style="background:#f0fdf4;">
-                <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
-                <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
-              </tr>
-              <tr>
-                <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
-                <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
-              </tr>
-            </table>
-            <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
-              Changez votre mot de passe lors de votre première connexion.
-            </p>
-          </div>
-        `,
-      }]
+    oauth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+    const accessToken = await oauth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type:         'OAuth2',
+        user:         process.env.EMAIL,
+        clientId:     process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+        accessToken:  accessToken.token,
+      },
     });
 
-    console.log('[EMAIL] Envoyé via Mailjet à :', tenant.adminEmail);
+    await transporter.sendMail({
+      from:    `"Axia Workflow" <${process.env.EMAIL}>`,
+      to:      tenant.adminEmail,
+      subject: `Votre compte ${tenant.companyName} est activé`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+          <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
+          <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
+          <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+            <tr style="background:#f0fdf4;">
+              <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
+              <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
+              <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
+            </tr>
+          </table>
+          <ul style="color:#374151;line-height:1.8;">
+            <li>Plan : <strong>${plan?.name || '—'}</strong></li>
+            ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
+          </ul>
+          <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
+            Changez votre mot de passe lors de votre première connexion.
+          </p>
+        </div>
+      `,
+    });
+
+    console.log('[EMAIL] Envoyé via Gmail OAuth2 à :', tenant.adminEmail);
   } catch (err) {
-    console.error('[EMAIL] Erreur Mailjet :', err.message);
+    console.error('[EMAIL] Erreur Gmail OAuth2 :', err.message);
   }
 };
-
-
 
 // ── GET plans publics ─────────────────────────────────────────────────────────
 exports.getPlans = async (req, res) => {
@@ -172,7 +147,7 @@ exports.getPlans = async (req, res) => {
   }
 };
 
-// ── POST /subscriptions/request — demande publique ────────────────────────────
+// ── POST /subscriptions/request ───────────────────────────────────────────────
 exports.requestSubscription = async (req, res) => {
   try {
     const {
@@ -182,7 +157,6 @@ exports.requestSubscription = async (req, res) => {
       sector, employeesCount, address, message,
     } = req.body;
 
-    // Validation obligatoires
     if (!companyName || !contactEmail || !adminFirstName || !adminLastName || !adminEmail || !planId) {
       return res.status(400).json({
         status: 'fail',
@@ -190,67 +164,49 @@ exports.requestSubscription = async (req, res) => {
       });
     }
 
-    // Vérifier le plan
     const plan = await Plan.findById(planId);
     if (!plan || !plan.isActive) {
       return res.status(400).json({ status: 'fail', message: 'Plan non trouvé ou inactif' });
     }
 
-    // ✅ Vérifier unicité matricule fiscal
-  if (matriculeFiscal) {
-  const mf = matriculeFiscal.replace(/\s/g, '').toUpperCase();
-  const existingTenant = await Tenant.findOne({ matriculeFiscal: mf });
-  
-  if (existingTenant) {
-    // Vérifier si l'abonnement existant est encore actif
-    const activeSub = await Subscription.findOne({
-      tenant: existingTenant._id,
-      status: 'active',
-    });
-
-    if (activeSub) {
-      // Abonnement actif → bloquer complètement
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Cette société possède déjà un abonnement actif. Contactez le support pour un renouvellement.'
-      });
+    if (matriculeFiscal) {
+      const mf = matriculeFiscal.replace(/\s/g, '').toUpperCase();
+      const existingTenant = await Tenant.findOne({ matriculeFiscal: mf });
+      if (existingTenant) {
+        const activeSub = await Subscription.findOne({ tenant: existingTenant._id, status: 'active' });
+        if (activeSub) {
+          return res.status(400).json({
+            status: 'fail',
+            message: 'Cette société possède déjà un abonnement actif.'
+          });
+        }
+      }
     }
-    // ✅ Sinon abonnement expiré/rejeté → renouvellement autorisé
-   }
-  }
 
-    // Vérifier unicité email admin
     const existingEmail = await Tenant.findOne({ adminEmail: adminEmail.toLowerCase() });
     if (existingEmail) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Cet email administrateur est déjà utilisé.'
-      });
+      return res.status(400).json({ status: 'fail', message: 'Cet email administrateur est déjà utilisé.' });
     }
 
-    // ✅ Vérifier limite employees vs plan
     if (employeesCount && plan.maxUsers) {
       const empNum = parseInt(employeesCount.split('-')[0]) || 0;
       if (empNum > plan.maxUsers * 2) {
         return res.status(400).json({
           status: 'fail',
-          message: `Votre nombre d'employés (${employeesCount}) dépasse les capacités du plan ${plan.name} (max ${plan.maxUsers} utilisateurs). Choisissez un plan supérieur.`
+          message: `Votre nombre d'employés dépasse les capacités du plan ${plan.name}.`
         });
       }
     }
 
-    // Générer slug unique depuis matricule ou nom
     const base = matriculeFiscal
       ? matriculeFiscal.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
       : companyName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
     const slug   = base + '_' + Date.now();
     const dbName = 'tenant_' + slug;
 
-    // ✅ FIX : Garder le mot de passe en clair pour l'email, puis hacher
     const plainPwd  = adminPassword || ('TempPass@' + Math.random().toString(36).slice(-6));
     const hashedPwd = await bcrypt.hash(plainPwd, 10);
 
-    // Créer le tenant en statut pending
     const tenant = await Tenant.create({
       companyName,
       matriculeFiscal: matriculeFiscal ? matriculeFiscal.replace(/\s/g, '').toUpperCase() : undefined,
@@ -262,7 +218,7 @@ exports.requestSubscription = async (req, res) => {
       adminLastName,
       adminEmail:         adminEmail.toLowerCase(),
       adminPassword:      hashedPwd,
-      adminPasswordPlain: plainPwd,   // ✅ FIX : stocké temporairement pour l'email
+      adminPasswordPlain: plainPwd,
       plan:               planId,
       sector,
       employeesCount,
@@ -278,13 +234,12 @@ exports.requestSubscription = async (req, res) => {
       },
     });
 
-    // Créer la demande d'abonnement
     const sub = await Subscription.create({
-      tenant:          tenant._id,
-      plan:            planId,
-      status:          'pending',
-      durationMonths:  parseInt(durationMonths) || 1,
-      requestMessage:  message || '',
+      tenant:         tenant._id,
+      plan:           planId,
+      status:         'pending',
+      durationMonths: parseInt(durationMonths) || 1,
+      requestMessage: message || '',
     });
 
     res.status(201).json({
@@ -293,12 +248,12 @@ exports.requestSubscription = async (req, res) => {
       data:    { tenantId: tenant._id, subscriptionId: sub._id },
     });
   } catch (err) {
-    console.error('❌ requestSubscription:', err.message);
+    console.error('[SUB] requestSubscription:', err.message);
     res.status(400).json({ status: 'fail', message: err.message });
   }
 };
 
-// ── PATCH /subscriptions/:id/approve — SuperAdmin approuve ───────────────────
+// ── PATCH /subscriptions/:id/approve ─────────────────────────────────────────
 exports.approveSubscription = async (req, res) => {
   try {
     const sub = await Subscription.findById(req.params.id).populate('plan');
@@ -308,38 +263,27 @@ exports.approveSubscription = async (req, res) => {
     }
 
     const plan   = sub.plan;
-    // ✅ FIX : utiliser .select('+adminPasswordPlain') pour récupérer le champ caché
     const tenant = await Tenant.findById(sub.tenant).select('+adminPasswordPlain');
     if (!tenant) return res.status(404).json({ status: 'fail', message: 'Tenant non trouvé' });
 
-    // ✅ Calculer dates selon la durée choisie
     const months    = sub.durationMonths || plan.durationMonths || 1;
     const startDate = new Date();
     const endDate   = new Date(startDate);
     endDate.setMonth(endDate.getMonth() + months);
 
-    // Mettre à jour l'abonnement
-    sub.status      = 'active';
-    sub.startDate   = startDate;
-    sub.endDate     = endDate;
-    sub.approvedBy  = req.user._id;
-    sub.approvedAt  = new Date();
+    sub.status     = 'active';
+    sub.startDate  = startDate;
+    sub.endDate    = endDate;
+    sub.approvedBy = req.user._id;
+    sub.approvedAt = new Date();
     await sub.save();
 
-    // ✅ Vérifier si la base tenant existe déjà
     const isFirstTime = tenant.isActive === false;
 
-    // Mettre à jour le tenant
     tenant.status   = 'active';
     tenant.isActive = true;
     tenant.plan     = plan._id;
-    tenant.subscription = {
-      startDate,
-      endDate,
-      durationMonths: months,
-      isActive:       true,
-      autoRenew:      false,
-    };
+    tenant.subscription = { startDate, endDate, durationMonths: months, isActive: true, autoRenew: false };
     tenant.limits = {
       maxUsers:     plan.maxUsers     || 5,
       maxWorkflows: plan.maxWorkflows || 10,
@@ -349,40 +293,28 @@ exports.approveSubscription = async (req, res) => {
     };
     await tenant.save();
 
-    // ✅ Initialiser la base si première fois, sinon réutiliser
     if (isFirstTime) {
-      console.log('🆕 Première activation — initialisation de la base...');
+      console.log('[SUB] Première activation — initialisation de la base...');
       await initTenantDb(tenant);
 
-      // ✅ FIX : Envoyer les identifiants par email à l'admin de la société
       const plainPwd = tenant.adminPasswordPlain;
       await sendCredentialsEmail(tenant, plainPwd, plan, months);
 
-      // ✅ FIX : Effacer le mot de passe en clair maintenant qu'il a été envoyé
       await Tenant.findByIdAndUpdate(tenant._id, { $unset: { adminPasswordPlain: '' } });
-      console.log('🔒 Mot de passe en clair effacé pour :', tenant.dbName);
-
+      console.log('[SUB] Mot de passe en clair effacé pour :', tenant.dbName);
     } else {
-      console.log('♻️ Renouvellement — base existante réutilisée pour :', tenant.dbName);
+      console.log('[SUB] Renouvellement — base existante pour :', tenant.dbName);
     }
 
     res.status(200).json({
       status: 'success',
       message: isFirstTime
-        ? `Abonnement approuvé ! Base de données créée pour ${tenant.companyName}`
+        ? `Abonnement approuvé ! Base créée pour ${tenant.companyName}`
         : `Abonnement renouvelé pour ${tenant.companyName}`,
-      data: {
-        subscription: sub,
-        tenant: {
-          companyName: tenant.companyName,
-          status:      tenant.status,
-          endDate:     sub.endDate,
-          durationMonths: months,
-        }
-      }
+      data: { subscription: sub, tenant: { companyName: tenant.companyName, status: tenant.status, endDate: sub.endDate, durationMonths: months } }
     });
   } catch (err) {
-    console.error('❌ approveSubscription:', err.message);
+    console.error('[SUB] approveSubscription:', err.message);
     res.status(500).json({ status: 'fail', message: err.message });
   }
 };
@@ -393,15 +325,13 @@ exports.rejectSubscription = async (req, res) => {
     const sub = await Subscription.findById(req.params.id);
     if (!sub) return res.status(404).json({ status: 'fail', message: 'Abonnement non trouvé' });
 
-    sub.status           = 'rejected';
-    sub.rejectedBy       = req.user._id;
-    sub.rejectedAt       = new Date();
+    sub.status          = 'rejected';
+    sub.rejectedBy      = req.user._id;
+    sub.rejectedAt      = new Date();
     sub.rejectionReason = req.body.adminNote || '';
     await sub.save();
 
-    await Tenant.findByIdAndUpdate(sub.tenant, {
-      status: 'cancelled', isActive: false,
-    });
+    await Tenant.findByIdAndUpdate(sub.tenant, { status: 'cancelled', isActive: false });
 
     res.status(200).json({ status: 'success', message: 'Demande rejetée' });
   } catch (err) {
@@ -409,26 +339,18 @@ exports.rejectSubscription = async (req, res) => {
   }
 };
 
-// ── GET tous les abonnements (superadmin) ─────────────────────────────────────
+// ── GET tous les abonnements ──────────────────────────────────────────────────
 exports.getAllSubscriptions = async (req, res) => {
   try {
     const filter = {};
- 
-    // ✅ Filtre optionnel par tenant (pour SubscriptionHistory)
-    if (req.query.tenant) {
-      filter.tenant = req.query.tenant;
-    }
- 
+    if (req.query.tenant) filter.tenant = req.query.tenant;
+
     const subscriptions = await Subscription.find(filter)
       .populate('tenant')
       .populate('plan')
       .sort({ createdAt: -1 });
- 
-    res.status(200).json({
-      status: 'success',
-      results: subscriptions.length,
-      data: { subscriptions },
-    });
+
+    res.status(200).json({ status: 'success', results: subscriptions.length, data: { subscriptions } });
   } catch (err) {
     res.status(400).json({ status: 'fail', message: err.message });
   }
@@ -467,39 +389,35 @@ exports.deleteSubscription = async (req, res) => {
 exports.checkExpiry = async () => {
   try {
     const now     = new Date();
-    const expired = await Subscription.find({
-      status:  'active',
-      endDate: { $lt: now },
-    });
+    const expired = await Subscription.find({ status: 'active', endDate: { $lt: now } });
 
     for (const sub of expired) {
       sub.status = 'expired';
       await sub.save();
       await Tenant.findByIdAndUpdate(sub.tenant, {
-        status:  'expired',
-        isActive: false,
-        'subscription.isActive': false,
+        status: 'expired', isActive: false, 'subscription.isActive': false,
       });
-      console.log('⏰ Abonnement expiré automatiquement :', sub.tenant);
+      console.log('[SUB] Abonnement expiré :', sub.tenant);
     }
 
     if (expired.length > 0) {
-      console.log(`✅ ${expired.length} abonnement(s) expiré(s) traité(s)`);
+      console.log(`[SUB] ${expired.length} abonnement(s) expiré(s)`);
     }
   } catch (err) {
-    console.error('❌ checkExpiry:', err.message);
+    console.error('[SUB] checkExpiry:', err.message);
   }
 };
+
+// ── POST /subscriptions/payment-intent ───────────────────────────────────────
 exports.createPaymentIntent = async (req, res) => {
   try {
     const {
       companyName, matriculeFiscal, contactEmail, contactPhone,
       adminFirstName, adminLastName, adminEmail,
       planId, durationMonths = 1,
-      sector, employeesCount, address, message, // ✅ FIX : address ajouté
+      sector, employeesCount, address, message,
     } = req.body;
 
-    // Validation
     if (!companyName || !contactEmail || !adminFirstName || !adminLastName || !adminEmail || !planId) {
       return res.status(400).json({ status: 'fail', message: 'Champs obligatoires manquants' });
     }
@@ -509,45 +427,37 @@ exports.createPaymentIntent = async (req, res) => {
       return res.status(400).json({ status: 'fail', message: 'Plan non trouvé ou inactif' });
     }
 
-    // Vérifier unicité email admin
     const existingEmail = await Tenant.findOne({ adminEmail: adminEmail.toLowerCase() });
     if (existingEmail) {
       return res.status(400).json({ status: 'fail', message: 'Cet email administrateur est déjà utilisé.' });
     }
 
-    // Calculer le montant avec la remise durée
-    const discounts = { 1: 1.00, 3: 0.95, 6: 0.90, 12: 0.80 };
+    const discounts  = { 1: 1.00, 3: 0.95, 6: 0.90, 12: 0.80 };
     const multiplier = discounts[durationMonths] || 1.00;
-    const totalDt = Math.round(plan.price * durationMonths * multiplier);
-    const amountCents = totalDt * 100; // Stripe en centimes
+    const totalDt    = Math.round(plan.price * durationMonths * multiplier);
+    const amountCents = totalDt * 100;
 
-    // Créer le PaymentIntent avec les metadata (récupérées dans le webhook)
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
-      currency: 'eur', // ou 'tnd' si supporté — sinon utilisez 'eur'
+      currency: 'eur',
       metadata: {
         companyName, matriculeFiscal: matriculeFiscal || '',
         contactEmail, contactPhone: contactPhone || '',
         adminFirstName, adminLastName, adminEmail,
         planId, durationMonths: String(durationMonths),
         sector: sector || '', employeesCount: employeesCount || '',
-        address: address || '', // ✅ FIX : address ajouté dans les metadata Stripe
-        message: message || '',
+        address: address || '', message: message || '',
       },
     });
 
-    res.status(200).json({
-      status: 'success',
-      clientSecret: paymentIntent.client_secret,
-      amount: totalDt,
-    });
+    res.status(200).json({ status: 'success', clientSecret: paymentIntent.client_secret, amount: totalDt });
   } catch (err) {
-    console.error('❌ createPaymentIntent:', err.message);
+    console.error('[SUB] createPaymentIntent:', err.message);
     res.status(500).json({ status: 'fail', message: err.message });
   }
 };
 
-// ── POST /subscriptions/webhook — Stripe confirme le paiement ────────────────
+// ── POST /subscriptions/webhook ───────────────────────────────────────────────
 exports.stripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
@@ -555,7 +465,7 @@ exports.stripeWebhook = async (req, res) => {
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error('❌ Webhook signature invalide:', err.message);
+    console.error('[SUB] Webhook signature invalide:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -564,7 +474,6 @@ exports.stripeWebhook = async (req, res) => {
     const m  = pi.metadata;
 
     try {
-      // Générer mot de passe temporaire
       const plainPwd  = 'TempPass@' + Math.random().toString(36).slice(-6);
       const hashedPwd = await bcrypt.hash(plainPwd, 10);
 
@@ -575,40 +484,38 @@ exports.stripeWebhook = async (req, res) => {
       const dbName = 'tenant_' + slug;
 
       const tenant = await Tenant.create({
-        companyName:     m.companyName,
-        matriculeFiscal: m.matriculeFiscal || undefined,
-        contactEmail:    m.contactEmail,
-        contactPhone:    m.contactPhone    || undefined,
-        adminFirstName:  m.adminFirstName,
-        adminLastName:   m.adminLastName,
-        adminEmail:      m.adminEmail.toLowerCase(),
-        adminPassword:   hashedPwd,
+        companyName:        m.companyName,
+        matriculeFiscal:    m.matriculeFiscal || undefined,
+        contactEmail:       m.contactEmail,
+        contactPhone:       m.contactPhone    || undefined,
+        adminFirstName:     m.adminFirstName,
+        adminLastName:      m.adminLastName,
+        adminEmail:         m.adminEmail.toLowerCase(),
+        adminPassword:      hashedPwd,
         adminPasswordPlain: plainPwd,
-        sector:          m.sector          || undefined,
-        employeesCount:  m.employeesCount  || undefined,
-        address:         m.address         || undefined, // ✅ FIX : champ address ajouté
-        slug,
-        dbName,
-        status:  'pending',
-        isActive: false,
-        plan:    m.planId,
+        sector:             m.sector          || undefined,
+        employeesCount:     m.employeesCount  || undefined,
+        address:            m.address         || undefined,
+        slug, dbName,
+        status: 'pending', isActive: false,
+        plan: m.planId,
       });
 
-      const sub = await Subscription.create({
+      await Subscription.create({
         tenant:         tenant._id,
         plan:           m.planId,
         status:         'pending',
         durationMonths: parseInt(m.durationMonths) || 1,
         requestMessage: m.message || '',
-        stripePaymentIntentId: pi.id, // utile pour traçabilité
+        stripePaymentIntentId: pi.id,
       });
 
       const plan = await Plan.findById(m.planId);
       await sendCredentialsEmail(tenant, plainPwd, plan, parseInt(m.durationMonths));
 
-      console.log('✅ Webhook: tenant créé après paiement:', tenant.companyName);
+      console.log('[SUB] Webhook: tenant créé après paiement:', tenant.companyName);
     } catch (err) {
-      console.error('❌ Webhook traitement:', err.message);
+      console.error('[SUB] Webhook traitement:', err.message);
     }
   }
 
