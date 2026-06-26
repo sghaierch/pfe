@@ -116,45 +116,45 @@ const initTenantDb = async (tenant) => {
   }
 };
 
-// Remplace la fonction sendCredentialsEmail dans subscriptionController.js ET tenantController.js
 
 const sendCredentialsEmail = async (tenant, plainPwd, plan, months) => {
   try {
-    const { Resend } = require('resend');
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const Mailjet = require('node-mailjet');
+    const mailjet = Mailjet.apiConnect(
+      process.env.MAILJET_API_KEY,
+      process.env.MAILJET_SECRET_KEY
+    );
 
-    await resend.emails.send({
-      from: 'Axia Workflow <onboarding@resend.dev>',
-      to: tenant.adminEmail,
-      subject: `✅ Votre compte ${tenant.companyName} est activé`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
-          <h2 style="color:#166534;">✅ Bienvenue, ${tenant.adminFirstName} !</h2>
-          <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
-          <table style="border-collapse:collapse;width:100%;margin:16px 0;">
-            <tr style="background:#f0fdf4;">
-              <td style="padding:10px 16px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
-              <td style="padding:10px 16px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 16px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
-              <td style="padding:10px 16px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
-            </tr>
-          </table>
-          <ul style="color:#374151;line-height:1.8;">
-            <li>Plan : <strong>${plan?.name || '—'}</strong></li>
-            ${months ? `<li>Durée : <strong>${months} mois</strong></li>` : ''}
-          </ul>
-          <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
-            🔐 Changez votre mot de passe lors de votre première connexion.
-          </p>
-        </div>
-      `,
+    await mailjet.post('send', { version: 'v3.1' }).request({
+      Messages: [{
+        From: { Email: process.env.EMAIL, Name: 'Axia Workflow' },
+        To:   [{ Email: tenant.adminEmail, Name: tenant.adminFirstName }],
+        Subject: `Votre compte ${tenant.companyName} est activé`,
+        HTMLPart: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+            <h2 style="color:#166534;">Bienvenue, ${tenant.adminFirstName} !</h2>
+            <p>Votre abonnement pour <strong>${tenant.companyName}</strong> a été approuvé.</p>
+            <table style="border-collapse:collapse;width:100%;margin:16px 0;">
+              <tr style="background:#f0fdf4;">
+                <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Email</td>
+                <td style="padding:10px;border:1px solid #d1fae5;">${tenant.adminEmail}</td>
+              </tr>
+              <tr>
+                <td style="padding:10px;font-weight:bold;border:1px solid #d1fae5;">Mot de passe</td>
+                <td style="padding:10px;border:1px solid #d1fae5;font-family:monospace;">${plainPwd}</td>
+              </tr>
+            </table>
+            <p style="padding:12px;background:#fef3c7;border-radius:6px;color:#92400e;">
+              Changez votre mot de passe lors de votre première connexion.
+            </p>
+          </div>
+        `,
+      }]
     });
 
-    console.log('[EMAIL] Envoyé via Resend à :', tenant.adminEmail);
+    console.log('[EMAIL] Envoyé via Mailjet à :', tenant.adminEmail);
   } catch (err) {
-    console.error('[EMAIL] Erreur Resend :', err.message);
+    console.error('[EMAIL] Erreur Mailjet :', err.message);
   }
 };
 
