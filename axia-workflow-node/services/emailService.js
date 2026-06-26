@@ -3,16 +3,14 @@
 
 const sendEmail = async ({ to, subject, html }) => {
   try {
-    const { BrevoClient } = require('@getbrevo/brevo');
-    const client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
+    const { Resend } = require('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await client.transactionalEmails.sendTransacEmail({
-      sender: { name: 'Axia Workflow', email: process.env.EMAIL },
-      to: Array.isArray(to)
-        ? to.map(email => ({ email }))
-        : [{ email: to }],
+    await resend.emails.send({
+      from: 'Axia Workflow <onboarding@resend.dev>',
+      to: Array.isArray(to) ? to : [to],
       subject,
-      htmlContent: html,
+      html,
     });
 
     console.log('[EMAIL] Envoyé à:', to);
