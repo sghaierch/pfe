@@ -873,6 +873,7 @@ const WorkflowEditor = ({
   initialVisibility = 'global',
   initialAllowedRoles = [],
   initialAllowedPosts = [],
+  initialDocType = '',
   }) => {
   const [nodes, setNodes] = useState(initialNodes || [{
     id: 'debut', type: 'debut', label: 'Debut', x: 280, y: 40,
@@ -896,7 +897,16 @@ const WorkflowEditor = ({
     allowedPostsRef.current = next;
     setAllowedPostsState(next);
   };
+  const [docType, setDocType] = useState(initialDocType || '');
+  const [docTypes, setDocTypes] = useState([]);
   useEffect(() => {
+    // Fetch document types for the selector
+    import('../../../services/api').then(m => {
+      const API = m.default;
+      API.get('/document-types').then(res => {
+        setDocTypes(res.data?.data?.documentTypes?.filter(dt => dt.isActive !== false) || []);
+      }).catch(() => {});
+    });
   console.log('allPosts:', allPosts.length);
 }, [allPosts]);
   const canvasRef = useRef();
@@ -1060,7 +1070,7 @@ form: {
   setSaving(true);
   try {
     console.log('🔍 allowedPosts avant save:', allowedPosts);
-    await onSave({ steps, nodes, edges, visibility, allowedRoles, allowedPosts: allowedPostsRef.current });
+    await onSave({ steps, nodes, edges, visibility, allowedRoles, allowedPosts: allowedPostsRef.current, docType });
   } catch (err) {
     console.error('Erreur save:', err);
   } finally {
@@ -1094,6 +1104,17 @@ form: {
           <span style={{ color: '#94a3b8', fontSize: '14px' }}>
             {workflowName || 'Editeur de Workflow'}
           </span>
+          {/* Sélecteur type de document */}
+          <select
+            value={docType}
+            onChange={e => setDocType(e.target.value)}
+            style={{ padding:'4px 10px', borderRadius:'6px', border:'1px solid #475569', background:'#334155', color: docType ? '#60a5fa' : '#94a3b8', fontSize:'12px', cursor:'pointer', fontWeight: docType ? 700 : 400 }}
+          >
+            <option value="">Type de document…</option>
+            {docTypes.map(dt => (
+              <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
+            ))}
+          </select>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

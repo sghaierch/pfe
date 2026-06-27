@@ -13,7 +13,6 @@ const IconAlert     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill
 const IconSearch    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
 const IconLoader    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:'spin .9s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 const IconHash      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>;
-const IconGear      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
 const IconWarn      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 const IconAlignLeft = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="13" y1="18" x2="3" y2="18"/></svg>;
 
@@ -63,7 +62,6 @@ const Field = ({ label, icon, required, children, hint }) => (
 // ── Main ───────────────────────────────────────────────────────────────────
 const DocumentTypesPage = () => {
   const [types,       setTypes]       = useState([]);
-  const [workflows,   setWorkflows]   = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [msg,         setMsg]         = useState('');
   const [editing,     setEditing]     = useState(null);
@@ -71,19 +69,16 @@ const DocumentTypesPage = () => {
   const [deleteModal, setDeleteModal] = useState(null);
   const [search,      setSearch]      = useState('');
 
-  const emptyForm = { name:'', prefix:'', digits:3, description:'', defaultWorkflow:'' };
+  // ✅ Le type de document ne contient plus de référence workflow.
+  // C'est le workflow qui choisit son type de document.
+  const emptyForm = { name:'', prefix:'', digits:3, description:'' };
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const [typesRes, wfRes] = await Promise.all([
-          API.get('/document-types'),
-          API.get('/workflows/templates/active').catch(() => ({ data: { data: { workflows: [] } } })),
-        ]);
-        setTypes(typesRes.data?.data?.documentTypes || []);
-        // Seuls les workflows templates actifs peuvent être liés à un type de document
-        setWorkflows(wfRes.data?.data?.workflows || wfRes.data?.workflows || []);
+        const res = await API.get('/document-types');
+        setTypes(res.data?.data?.documentTypes || []);
       } catch (err) {
         showMsg('ERREUR ' + (err.response?.data?.message || err.message));
       } finally { setLoading(false); }
@@ -129,7 +124,8 @@ const DocumentTypesPage = () => {
 
   const handleEdit = (type) => {
     setEditing(type._id);
-    setForm({ name:type.name, prefix:type.prefix, digits:type.digits, description:type.description||'', defaultWorkflow: type.defaultWorkflow ? String(type.defaultWorkflow) : '' });
+    // ✅ Plus de defaultWorkflow ici
+    setForm({ name:type.name, prefix:type.prefix, digits:type.digits, description:type.description||'' });
   };
 
   const handleDelete = async () => {
@@ -150,7 +146,6 @@ const DocumentTypesPage = () => {
     return types.filter(t =>
       t.name?.toLowerCase().includes(q) ||
       t.prefix?.toLowerCase().includes(q) ||
-      t.workflowName?.toLowerCase().includes(q) ||
       t.description?.toLowerCase().includes(q)
     );
   }, [types, search]);
@@ -222,13 +217,13 @@ const DocumentTypesPage = () => {
             </div>
 
             <Field label="Nom du document" icon={<IconFile/>} required>
-              <SInput value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex : Demande d'Achat"/>
+              <SInput value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex : Demande de Congé"/>
             </Field>
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'16px' }}>
               <div>
                 <Lbl icon={<IconHash/>} required>Préfixe</Lbl>
-                <SInput value={form.prefix} onChange={e=>set('prefix',e.target.value.toUpperCase())} placeholder="DA" maxLength={10}/>
+                <SInput value={form.prefix} onChange={e=>set('prefix',e.target.value.toUpperCase())} placeholder="DC" maxLength={10}/>
               </div>
               <div>
                 <Lbl icon={<IconHash/>}>Nb chiffres</Lbl>
@@ -248,13 +243,11 @@ const DocumentTypesPage = () => {
               <STextarea value={form.description} onChange={e=>set('description',e.target.value)} placeholder="Description optionnelle…"/>
             </Field>
 
-            <Field label="Workflow associé" icon={<IconGear/>}
-              hint={workflows.length === 0 ? <><IconWarn/> <span style={{color:'#D97706'}}>Aucun workflow — créez-en un d'abord.</span></> : null}>
-              <SSelect value={form.defaultWorkflow} onChange={e=>set('defaultWorkflow',e.target.value)}>
-                <option value="">— Aucun workflow —</option>
-                {workflows.map(w => <option key={w._id} value={w._id}>{w.name}</option>)}
-              </SSelect>
-            </Field>
+            {/* ✅ INFO : le lien avec le workflow se fait côté workflow */}
+            <div style={{ marginBottom:'16px', padding:'11px 13px', background:'#EFF6FF', borderRadius:'9px', border:'1.5px solid #BFDBFE', fontSize:'12px', color:'#1E40AF', display:'flex', gap:'8px', alignItems:'flex-start' }}>
+              <span style={{ fontSize:'14px', flexShrink:0 }}>💡</span>
+              <span>Le workflow associé se configure dans l'éditeur de workflow, pas ici. Un workflow choisit son type de document.</span>
+            </div>
 
             <div style={{ display:'flex', gap:'8px', marginTop:'4px' }}>
               <button onClick={handleSubmit} disabled={saving}
@@ -282,7 +275,7 @@ const DocumentTypesPage = () => {
                 <input
                   value={search}
                   onChange={e=>setSearch(e.target.value)}
-                  placeholder="Rechercher nom, préfixe, workflow…"
+                  placeholder="Rechercher nom, préfixe…"
                   style={{ width:'100%', boxSizing:'border-box', padding:'9px 36px 9px 38px', borderRadius:'9px', border:'1.5px solid #E2E8F0', fontSize:'14px', color:'#0F172A', outline:'none', background:'#F8FAFC', fontFamily:"'Inter',sans-serif", transition:'all 0.15s' }}
                   onFocus={e=>{ e.target.style.borderColor=B; e.target.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)'; e.target.style.background='#fff'; }}
                   onBlur={e=>{ e.target.style.borderColor='#E2E8F0'; e.target.style.boxShadow='none'; e.target.style.background='#F8FAFC'; }}
@@ -299,9 +292,9 @@ const DocumentTypesPage = () => {
               </span>
             </div>
 
-            {/* Table header */}
-            <div style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 1.2fr 0.7fr auto', gap:'12px', padding:'11px 20px', background:'#F8FAFC', borderBottom:'1.5px solid #E2E8F0' }}>
-              {['Nom', 'Préfixe', 'Exemple', 'Workflow', 'Statut', 'Actions'].map(h => (
+            {/* ✅ Table header — sans colonne Workflow */}
+            <div style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 0.7fr auto', gap:'12px', padding:'11px 20px', background:'#F8FAFC', borderBottom:'1.5px solid #E2E8F0' }}>
+              {['Nom', 'Préfixe', 'Exemple', 'Statut', 'Actions'].map(h => (
                 <div key={h} style={{ fontSize:'11px', fontWeight:700, color:'#64748B', textTransform:'uppercase', letterSpacing:'0.07em' }}>{h}</div>
               ))}
             </div>
@@ -324,7 +317,7 @@ const DocumentTypesPage = () => {
               const pc = prefixColor(type.prefix);
               return (
                 <div key={type._id} className="dt-row"
-                  style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 1.2fr 0.7fr auto', gap:'12px', alignItems:'center', padding:'13px 20px', borderBottom:'1px solid #F1F5F9', background:'#fff', transition:'background 0.15s' }}>
+                  style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 0.7fr auto', gap:'12px', alignItems:'center', padding:'13px 20px', borderBottom:'1px solid #F1F5F9', background:'#fff', transition:'background 0.15s' }}>
 
                   {/* Name */}
                   <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
@@ -347,18 +340,6 @@ const DocumentTypesPage = () => {
                   {/* Example */}
                   <div style={{ fontFamily:'monospace', fontSize:'13px', color:'#16A34A', fontWeight:700 }}>
                     {type.example || '—'}
-                  </div>
-
-                  {/* Workflow */}
-                  <div>
-                    {type.workflowName
-                      ? <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 10px', borderRadius:'20px', background:'#F0FDF4', color:'#16A34A', border:'1px solid #BBF7D0', fontSize:'12px', fontWeight:600 }}>
-                          <IconGear/> {type.workflowName}
-                        </span>
-                      : <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'4px 10px', borderRadius:'20px', background:'#FFFBEB', color:'#D97706', border:'1px solid #FDE68A', fontSize:'12px', fontWeight:600 }}>
-                          <IconWarn/> Non lié
-                        </span>
-                    }
                   </div>
 
                   {/* Status */}

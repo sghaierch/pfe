@@ -11,7 +11,6 @@ const IconArrowL  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="
 const IconCheck   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
 const IconAlert   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 const IconLoader  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:'spin .9s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
-const IconFolder  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>;
 const IconGlobe   = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
 const IconLock    = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
 const IconX       = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
@@ -35,6 +34,9 @@ const ROLE_CONFIG = {
   rh:           { color:'#0F766E', bg:'#CCFBF1', label:'RH'           },
   direction:    { color:'#92400E', bg:'#FEF9C3', label:'Direction'    },
 };
+
+// ── Palette couleurs pour les types de documents ──────────────────────────
+const DOC_COLORS = ['#2563EB','#D97706','#7C3AED','#16A34A','#0891B2','#DB2777','#EA580C','#65A30D'];
 
 // ── Shared input style ─────────────────────────────────────────────────────
 const getInp = (focused, color) => ({
@@ -89,7 +91,8 @@ const CreateWorkflowFromTemplate = () => {
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
   const [msg,          setMsg]          = useState('');
-  const [documentTypes,setDocumentTypes]= useState([]);
+  // ✅ Types de documents chargés dynamiquement depuis la DB
+  const [documentTypes, setDocumentTypes] = useState([]);
 
   const [form, setForm] = useState({ name:'', description:'', projectId:'', dueDate:'', documentTypeId:'', postMapping:{} });
 
@@ -102,7 +105,8 @@ const CreateWorkflowFromTemplate = () => {
           projectService.getAll ? projectService.getAll() : { data:{ projects:[] } },
           API.get('/document-types'),
         ]);
-        setDocumentTypes(dtRes.data?.data?.documentTypes?.filter(dt => dt.isActive) || []);
+        // ✅ Seuls les types actifs sont proposés
+        setDocumentTypes(dtRes.data?.data?.documentTypes?.filter(dt => dt.isActive !== false) || []);
         const tmpl  = tmplRes.data?.template;
         const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
         setTemplate(tmpl); setAllPosts(postsData||[]); setProjects(projs);
@@ -141,7 +145,8 @@ const CreateWorkflowFromTemplate = () => {
     }
     setSaving(true);
     try {
-      await workflowService.create({ name:form.name, description:form.description, project:form.projectId, dueDate:form.dueDate||null, docType:form.documentTypeId||'', templateId, isTemplate:true, steps, nodes:[], edges:[], allowedPosts, visibility:allowedPosts.length>0?'restricted':'global' });
+      // ✅ docType envoyé comme ObjectId MongoDB (form.documentTypeId)
+      await workflowService.create({ name:form.name, description:form.description, project:form.projectId, dueDate:form.dueDate||null, docType:form.documentTypeId||null, templateId, isTemplate:true, steps, nodes:[], edges:[], allowedPosts, visibility:allowedPosts.length>0?'restricted':'global' });
       navigate('/dashboard/company/projects/' + form.projectId);
     } catch (err) { setMsg('ERREUR ' + (err.response?.data?.message||err.message)); }
     finally { setSaving(false); }
@@ -159,6 +164,9 @@ const CreateWorkflowFromTemplate = () => {
   const employeStep = template.steps?.[0];
   const isSuccess = msg.startsWith('SUCCESS');
   const msgText = msg.replace(/^(ERREUR|SUCCESS)\s?/,'');
+
+  // ✅ Type de document sélectionné (pour afficher l'aperçu numérotation)
+  const selectedDocType = documentTypes.find(dt => dt._id === form.documentTypeId);
 
   return (
     <>
@@ -190,7 +198,7 @@ const CreateWorkflowFromTemplate = () => {
           {/* ── Section 1 : Infos générales ── */}
           <SectionCard number="1" title="Informations générales">
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px', marginBottom:'16px' }}>
-              <div><Lbl required>Nom du workflow</Lbl><SInput value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Ex : Demande achat Q1 2026"/></div>
+              <div><Lbl required>Nom du workflow</Lbl><SInput value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Ex : Demande congé Q1 2026"/></div>
               <div><Lbl required>Projet</Lbl>
                 <SSelect value={form.projectId} onChange={e=>setForm(p=>({...p,projectId:e.target.value}))}>
                   <option value="">— Choisir un projet —</option>
@@ -204,8 +212,45 @@ const CreateWorkflowFromTemplate = () => {
             </div>
           </SectionCard>
 
-          {/* ── Section 2 : Circuit d'approbation ── */}
-          <SectionCard number="2" title="Circuit d'approbation" subtitle="Aperçu des étapes définies dans le template.">
+          {/* ── Section 2 : Type de document ── ✅ NOUVEAU */}
+          <SectionCard number="2" title="Type de document" subtitle="Quel type de document cette demande génère-t-elle ? Cela détermine la numérotation automatique.">
+            {documentTypes.length === 0 ? (
+              <div style={{ padding:'14px 16px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'10px', fontSize:'13px', color:'#92400E', display:'flex', alignItems:'center', gap:'8px' }}>
+                ⚠️ Aucun type de document disponible — créez-en un dans <strong style={{marginLeft:'4px'}}>Types de documents</strong> d'abord.
+              </div>
+            ) : (
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+                {/* Option Aucun */}
+                <button
+                  onClick={() => setForm(p=>({...p, documentTypeId:''}))}
+                  style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${!form.documentTypeId ? B : '#E2E8F0'}`, background:!form.documentTypeId ? '#EFF6FF' : '#F8FAFC', color:!form.documentTypeId ? B : '#64748B', fontWeight:!form.documentTypeId ? 700 : 500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s' }}>
+                  Aucun type
+                </button>
+                {/* ✅ Types chargés depuis la DB */}
+                {documentTypes.map((dt, idx) => {
+                  const color = DOC_COLORS[idx % DOC_COLORS.length];
+                  const isSel = form.documentTypeId === dt._id;
+                  return (
+                    <button key={dt._id}
+                      onClick={() => setForm(p=>({...p, documentTypeId: dt._id}))}
+                      style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${isSel ? color : '#E2E8F0'}`, background: isSel ? color+'18' : '#F8FAFC', color: isSel ? color : '#64748B', fontWeight: isSel ? 700 : 500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s', boxShadow: isSel ? `0 2px 8px ${color}30` : 'none' }}>
+                      {dt.prefix} — {dt.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {/* ✅ Aperçu numérotation */}
+            {selectedDocType && (
+              <div style={{ marginTop:'12px', padding:'10px 16px', background:'#EFF6FF', borderRadius:'9px', border:'1.5px solid #BFDBFE', fontSize:'13px', color:'#1D4ED8', fontWeight:500, display:'flex', alignItems:'center', gap:'10px' }}>
+                <span style={{ fontWeight:800, fontSize:'15px', fontFamily:'monospace' }}>{selectedDocType.prefix}</span>
+                <span>— Numérotation automatique · Exemple : <strong>{selectedDocType.prefix}{new Date().getFullYear().toString().slice(-2)}-{'1'.padStart(selectedDocType.digits, '0')}</strong></span>
+              </div>
+            )}
+          </SectionCard>
+
+          {/* ── Section 3 : Circuit d'approbation ── */}
+          <SectionCard number="3" title="Circuit d'approbation" subtitle="Aperçu des étapes définies dans le template.">
             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap', padding:'16px 20px', background:'#F8FAFC', borderRadius:'12px', border:'1.5px solid #E2E8F0' }}>
               {(template.steps||[]).map((step, i) => {
                 const rc = ROLE_CONFIG[step.role] || ROLE_CONFIG.validateur;
@@ -225,9 +270,9 @@ const CreateWorkflowFromTemplate = () => {
             </div>
           </SectionCard>
 
-          {/* ── Section 3 : Assignation postes ── */}
+          {/* ── Section 4 : Assignation postes ── */}
           {template.type !== 'automatic' && validationSteps.length > 0 && (
-            <SectionCard number="3" title="Assignation des postes" subtitle="Choisissez quel poste sera responsable de chaque étape de validation.">
+            <SectionCard number="4" title="Assignation des postes" subtitle="Choisissez quel poste sera responsable de chaque étape de validation.">
               {/* Étape employé */}
               <div style={{ display:'flex', alignItems:'center', gap:'14px', padding:'14px 18px', background:'#E0F2FE', borderRadius:'12px', border:'1.5px solid #7DD3FC', marginBottom:'10px' }}>
                 <div style={{ width:'36px', height:'36px', borderRadius:'10px', background:'#0891B2', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><IconUsers/></div>
@@ -279,7 +324,7 @@ const CreateWorkflowFromTemplate = () => {
 
           {/* Automatic */}
           {template.type === 'automatic' && (
-            <SectionCard number="3" title="Mode automatique">
+            <SectionCard number="4" title="Mode automatique">
               <div style={{ padding:'16px 18px', background:'#FFFBEB', borderRadius:'12px', border:'1.5px solid #FDE68A' }}>
                 <p style={{ margin:0, fontWeight:700, color:'#92400E', fontSize:'14px' }}>
                   ⚡ Les demandes seront approuvées automatiquement sans intervention humaine.
@@ -288,12 +333,12 @@ const CreateWorkflowFromTemplate = () => {
             </SectionCard>
           )}
 
-          {/* ── Section 4 : Accès employés ── */}
-          <SectionCard number="4" title="Accès employés" subtitle="Définissez quels employés peuvent soumettre ce type de demande." color="#7C3AED">
+          {/* ── Section 5 : Accès employés ── */}
+          <SectionCard number="5" title="Accès employés" subtitle="Définissez quels employés peuvent soumettre ce type de demande." color="#7C3AED">
             <div style={{ display:'flex', gap:'12px', marginBottom:'16px' }}>
               {[
-                { value:'global',     label:'Tous les employés',    desc:'Visible par tous',                         icon:<IconGlobe/>,  color:'#16A34A', bg:'#F0FDF4', border:'#BBF7D0' },
-                { value:'restricted', label:'Postes spécifiques',   desc:'Visible par les postes sélectionnés',      icon:<IconLock/>,   color:'#7C3AED', bg:'#F5F3FF', border:'#DDD6FE' },
+                { value:'global',     label:'Tous les employés',  desc:'Visible par tous',                    icon:<IconGlobe/>,  color:'#16A34A', bg:'#F0FDF4', border:'#BBF7D0' },
+                { value:'restricted', label:'Postes spécifiques', desc:'Visible par les postes sélectionnés', icon:<IconLock/>,   color:'#7C3AED', bg:'#F5F3FF', border:'#DDD6FE' },
               ].map(opt => {
                 const isSelected = opt.value==='global' ? allowedPosts.length===0 : allowedPosts.length>0;
                 return (
