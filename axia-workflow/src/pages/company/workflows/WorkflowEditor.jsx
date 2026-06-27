@@ -873,7 +873,7 @@ const WorkflowEditor = ({
   initialVisibility = 'global',
   initialAllowedRoles = [],
   initialAllowedPosts = [],
-  initialDocType = '',
+  initialDocType = '',     // ✅ type de document initial (pour édition)
   }) => {
   const [nodes, setNodes] = useState(initialNodes || [{
     id: 'debut', type: 'debut', label: 'Debut', x: 280, y: 40,
@@ -897,16 +897,20 @@ const WorkflowEditor = ({
     allowedPostsRef.current = next;
     setAllowedPostsState(next);
   };
-  const [docType, setDocType] = useState(initialDocType || '');
+  // ✅ Type de document sélectionné pour ce workflow
+  const [docType,  setDocType]  = useState(initialDocType || '');
   const [docTypes, setDocTypes] = useState([]);
+  // ✅ Charger les types de documents disponibles
   useEffect(() => {
-    // Fetch document types for the selector
     import('../../../services/api').then(m => {
-      const API = m.default;
-      API.get('/document-types').then(res => {
+      m.default.get('/document-types').then(res => {
         setDocTypes(res.data?.data?.documentTypes?.filter(dt => dt.isActive !== false) || []);
       }).catch(() => {});
     });
+  // eslint-disable-next-line
+  }, []);
+
+  useEffect(() => {
   console.log('allPosts:', allPosts.length);
 }, [allPosts]);
   const canvasRef = useRef();
@@ -1063,6 +1067,10 @@ form: {
         : (n.claims || { canValidate: true, canReject: true, canModify: false, canView: true }),
     }));
 
+    if (!docType) {
+      setAlertMsg('Choisissez un type de document avant de sauvegarder');
+      return;
+    }
     if (steps.length < 2) {
     setAlertMsg('Ajoutez au moins une étape de validation après l\'étape Employé');
     return;
@@ -1070,7 +1078,7 @@ form: {
   setSaving(true);
   try {
     console.log('🔍 allowedPosts avant save:', allowedPosts);
-    await onSave({ steps, nodes, edges, visibility, allowedRoles, allowedPosts: allowedPostsRef.current, docType });
+    await onSave({ steps, nodes, edges, visibility, allowedRoles, allowedPosts: allowedPostsRef.current, docType: docType || null });
   } catch (err) {
     console.error('Erreur save:', err);
   } finally {
@@ -1104,17 +1112,41 @@ form: {
           <span style={{ color: '#94a3b8', fontSize: '14px' }}>
             {workflowName || 'Editeur de Workflow'}
           </span>
-          {/* Sélecteur type de document */}
-          <select
-            value={docType}
-            onChange={e => setDocType(e.target.value)}
-            style={{ padding:'4px 10px', borderRadius:'6px', border:'1px solid #475569', background:'#334155', color: docType ? '#60a5fa' : '#94a3b8', fontSize:'12px', cursor:'pointer', fontWeight: docType ? 700 : 400 }}
-          >
-            <option value="">Type de document…</option>
-            {docTypes.map(dt => (
-              <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
-            ))}
-          </select>
+
+          {/* ✅ Sélecteur type de document — pills dans la topbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#0f172a', padding: '4px 8px', borderRadius: '8px', border: '1px solid #334155' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.04em' }}>📄</span>
+            {docTypes.length === 0 ? (
+              <span style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic' }}>Aucun type…</span>
+            ) : (
+              docTypes.map((dt, idx) => {
+                const COLORS = ['#3b82f6','#f59e0b','#8b5cf6','#10b981','#0ea5e9','#ec4899'];
+                const c = COLORS[idx % COLORS.length];
+                const isSel = docType === dt._id;
+                return (
+                  <button
+                    key={dt._id}
+                    onClick={() => setDocType(isSel ? '' : dt._id)}
+                    title={dt.name}
+                    style={{
+                      padding: '3px 10px', borderRadius: '20px', border: 'none',
+                      background: isSel ? c : 'transparent',
+                      color: isSel ? '#fff' : '#94a3b8',
+                      fontSize: '11px', fontWeight: isSel ? 700 : 500,
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                      transition: 'all 0.15s',
+                      outline: isSel ? 'none' : `1px solid #334155`,
+                    }}
+                  >
+                    {dt.prefix}
+                  </button>
+                );
+              })
+            )}
+            {!docType && docTypes.length > 0 && (
+              <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700, marginLeft: '2px' }}>●</span>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
