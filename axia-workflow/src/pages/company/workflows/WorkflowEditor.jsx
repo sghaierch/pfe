@@ -1115,7 +1115,7 @@ form: {
 
           {/* ✅ Sélecteur type de document — pills dans la topbar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#0f172a', padding: '4px 8px', borderRadius: '8px', border: '1px solid #334155' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, whiteSpace: 'nowrap', letterSpacing: '0.04em' }}>📄</span>
+            
             {docTypes.length === 0 ? (
               <span style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic' }}>Aucun type…</span>
             ) : (

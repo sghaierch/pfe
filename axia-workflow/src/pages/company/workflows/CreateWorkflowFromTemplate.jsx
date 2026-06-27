@@ -214,57 +214,57 @@ const CreateWorkflowFromTemplate = () => {
           </SectionCard>
 
           {/* ── Section 2 : Type de document ── ✅ OBLIGATOIRE */}
-          <SectionCard number="2" title={<span>Type de document <span style={{color:'#EF4444',fontSize:'13px'}}>*</span></span>} subtitle="Obligatoire — détermine la numérotation automatique des demandes.">
+          <SectionCard number="2" title={<span>Type de document <span style={{color:'#EF4444'}}>*</span></span>} subtitle="Obligatoire — détermine la numérotation automatique des demandes.">
             {documentTypes.length === 0 ? (
-              <div style={{ padding:'14px 16px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'10px', fontSize:'13px', color:'#92400E', display:'flex', alignItems:'center', gap:'8px' }}>
+              <div style={{ padding:'12px 14px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'9px', fontSize:'13px', color:'#92400E', display:'flex', alignItems:'center', gap:'8px' }}>
                 ⚠️ Aucun type de document — créez-en un dans <strong style={{marginLeft:'4px'}}>Types de documents</strong> d'abord.
               </div>
             ) : (
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'10px' }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
                 {documentTypes.map((dt, idx) => {
                   const color = DOC_COLORS[idx % DOC_COLORS.length];
                   const isSel = form.documentTypeId === dt._id;
-                  const year = new Date().getFullYear().toString().slice(-2);
-                  const example = `${dt.prefix}${year}-${'1'.padStart(dt.digits, '0')}`;
                   return (
                     <button key={dt._id}
                       onClick={() => setForm(p=>({...p, documentTypeId: dt._id}))}
                       style={{
-                        padding:'14px 16px', borderRadius:'12px', textAlign:'left',
+                        display:'flex', alignItems:'center', gap:'14px',
+                        padding:'12px 16px', borderRadius:'10px', textAlign:'left',
                         border: isSel ? `2px solid ${color}` : '1.5px solid #E2E8F0',
-                        background: isSel ? color+'12' : '#F8FAFC',
+                        background: isSel ? color+'0f' : '#fff',
                         cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                        transition:'all 0.15s',
-                        boxShadow: isSel ? `0 4px 16px ${color}25` : '0 1px 4px rgba(0,0,0,0.04)',
-                        position:'relative', outline:'none',
+                        transition:'all 0.15s', outline:'none',
+                        boxShadow: isSel ? `0 2px 10px ${color}20` : 'none',
                       }}>
-                      {/* Badge préfixe */}
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px' }}>
-                        <span style={{ fontFamily:'monospace', fontWeight:800, fontSize:'18px', color: isSel ? color : '#374151', letterSpacing:'1px' }}>
-                          {dt.prefix}
-                        </span>
-                        {isSel && (
-                          <span style={{ width:'20px', height:'20px', borderRadius:'50%', background:color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', color:'#fff', fontWeight:800 }}>✓</span>
-                        )}
-                      </div>
-                      <p style={{ margin:'0 0 4px', fontWeight:700, fontSize:'13px', color: isSel ? color : '#0F172A' }}>{dt.name}</p>
-                      <p style={{ margin:0, fontSize:'11px', color:'#94A3B8', fontFamily:'monospace' }}>Ex : {example}</p>
+                      {/* Cercle sélection */}
+                      <div style={{
+                        width:'18px', height:'18px', borderRadius:'50%', flexShrink:0,
+                        border: isSel ? `5px solid ${color}` : '2px solid #CBD5E1',
+                        background: '#fff', transition:'all 0.15s',
+                      }}/>
+                      {/* Préfixe */}
+                      <span style={{ fontFamily:'monospace', fontWeight:800, fontSize:'14px', color: isSel ? color : '#374151', minWidth:'32px' }}>
+                        {dt.prefix}
+                      </span>
+                      {/* Séparateur */}
+                      <span style={{ color:'#E2E8F0', fontSize:'16px' }}>|</span>
+                      {/* Nom */}
+                      <span style={{ fontWeight: isSel ? 700 : 500, fontSize:'13px', color: isSel ? color : '#475569', flex:1 }}>
+                        {dt.name}
+                      </span>
+                      {isSel && (
+                        <span style={{ fontSize:'12px', color:color, fontWeight:700 }}>✓</span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             )}
-            {/* Message si rien sélectionné */}
-            {!form.documentTypeId && documentTypes.length > 0 && (
-              <div style={{ marginTop:'10px', padding:'8px 12px', background:'#FEF2F2', borderRadius:'8px', border:'1px solid #FECACA', fontSize:'12px', color:'#DC2626', fontWeight:600, display:'flex', alignItems:'center', gap:'6px' }}>
-                ⚠️ Sélectionnez un type de document pour continuer
-              </div>
-            )}
-            {/* Aperçu si sélectionné */}
+            {/* Aperçu numérotation si sélectionné */}
             {selectedDocType && (
-              <div style={{ marginTop:'10px', padding:'10px 16px', background:'#EFF6FF', borderRadius:'9px', border:'1.5px solid #BFDBFE', fontSize:'13px', color:'#1D4ED8', fontWeight:500, display:'flex', alignItems:'center', gap:'10px' }}>
-                <span style={{ fontWeight:800, fontSize:'15px', fontFamily:'monospace' }}>{selectedDocType.prefix}</span>
-                <span>— Numérotation automatique · Exemple : <strong>{selectedDocType.prefix}{new Date().getFullYear().toString().slice(-2)}-{'1'.padStart(selectedDocType.digits, '0')}</strong></span>
+              <div style={{ marginTop:'10px', padding:'9px 14px', background:'#EFF6FF', borderRadius:'8px', border:'1px solid #BFDBFE', fontSize:'12px', color:'#1D4ED8', fontWeight:600, display:'flex', alignItems:'center', gap:'8px' }}>
+                <span style={{ fontFamily:'monospace', fontWeight:800 }}>{selectedDocType.prefix}</span>
+                <span>— Numérotation auto · Ex : <strong>{selectedDocType.prefix}{new Date().getFullYear().toString().slice(-2)}-{'1'.padStart(selectedDocType.digits, '0')}</strong></span>
               </div>
             )}
           </SectionCard>
