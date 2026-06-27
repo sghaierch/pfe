@@ -1131,7 +1131,7 @@ form: {
               outline: 'none',
             }}
           >
-            <option value="">📄 Type de document…</option>
+            <option value="" disabled hidden>📄 Type de document…</option>
             {docTypes.map(dt => (
               <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
             ))}

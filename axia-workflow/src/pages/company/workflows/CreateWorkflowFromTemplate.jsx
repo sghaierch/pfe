@@ -202,7 +202,7 @@ const CreateWorkflowFromTemplate = () => {
               <div><Lbl required>Nom du workflow</Lbl><SInput value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Ex : Demande congé Q1 2026"/></div>
               <div><Lbl required>Projet</Lbl>
                 <SSelect value={form.projectId} onChange={e=>setForm(p=>({...p,projectId:e.target.value}))}>
-                  <option value="">— Choisir un projet —</option>
+                  <option value="" disabled hidden>— Choisir un projet —</option>
                   {projects.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}
                 </SSelect>
               </div>
@@ -224,7 +224,7 @@ const CreateWorkflowFromTemplate = () => {
                 value={form.documentTypeId}
                 onChange={e => setForm(p => ({...p, documentTypeId: e.target.value}))}
               >
-                <option value="">— Choisir un type de document —</option>
+                <option value="" disabled hidden>— Choisir un type de document —</option>
                 {documentTypes.map(dt => (
                   <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
                 ))}
