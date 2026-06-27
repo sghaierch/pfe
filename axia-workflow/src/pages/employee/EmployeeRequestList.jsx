@@ -30,8 +30,9 @@ const EmployeeRequestList = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res  = await API.get('/document-types');
-        const list = res.data?.data?.documentTypes?.filter(t => t.isActive) || [];
+        // ✅ Charge les workflows actifs filtrés par poste de l'employé connecté
+        const res  = await API.get('/workflows/templates/active');
+        const list = res.data?.data?.workflows || [];
         setTemplates(Array.isArray(list) ? list : []);
       } catch (err) {
         setError('Impossible de charger les types de demandes.');
@@ -42,7 +43,9 @@ const EmployeeRequestList = () => {
 
   const filtered = templates.filter(t =>
     t.name.toLowerCase().includes(search.toLowerCase()) ||
-    (t.description||'').toLowerCase().includes(search.toLowerCase())
+    (t.description||'').toLowerCase().includes(search.toLowerCase()) ||
+    (t.docType?.name||'').toLowerCase().includes(search.toLowerCase()) ||
+    (t.docType?.prefix||'').toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) return (
@@ -108,7 +111,7 @@ const EmployeeRequestList = () => {
             <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
               {filtered.map((template,i) => (
                 <div key={template._id} className="req-card"
-                  onClick={()=>navigate('/dashboard/employee/submit-request?template='+template._id)}
+                  onClick={()=>navigate('/dashboard/employee/submit-request?workflowId='+template._id)}
                   style={{ background:T.surface, borderRadius:'14px', border:`1.5px solid ${T.border}`, padding:'18px 22px', cursor:'pointer', display:'flex', alignItems:'center', gap:'18px', boxShadow:'0 1px 4px rgba(15,23,42,0.04)', transition:'all .15s ease', animationDelay:`${i*0.04}s` }}>
                   {/* Icon */}
                   <div style={{ width:'52px', height:'52px', borderRadius:'14px', background:T.blueSoft, border:`1.5px solid ${T.blueBorder}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:T.blue }}><IFile/></div>
@@ -116,14 +119,16 @@ const EmployeeRequestList = () => {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'5px', flexWrap:'wrap' }}>
                       <h3 style={{ margin:0, fontSize:'15px', fontWeight:700, color:T.slate, fontFamily:font }}>{template.name}</h3>
-                      <span style={{ background:'#DBEAFE', color:T.blue, padding:'2px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:800, fontFamily:'monospace', border:`1px solid ${T.blueBorder}` }}>{template.prefix}26</span>
-                      {template.workflowName&&(
+                      {template.docType && (
+                      <span style={{ background:'#DBEAFE', color:T.blue, padding:'2px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:800, fontFamily:'monospace', border:`1px solid ${T.blueBorder}` }}>{template.docType.prefix}</span>
+                    )}
+                      {template.docType?.name && (
                         <span style={{ background:T.greenSoft, color:T.green, padding:'2px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:700, display:'inline-flex', alignItems:'center', gap:'4px', border:`1px solid ${T.greenBorder}` }}>
-                          <IRepeat/> {template.workflowName}
+                          <IRepeat/> {template.docType.name}
                         </span>
                       )}
                     </div>
-                    <p style={{ margin:0, fontSize:'13px', color:T.slateM, lineHeight:1.5 }}>{template.description||'Soumettre une demande de type '+template.name}</p>
+                    <p style={{ margin:0, fontSize:'13px', color:T.slateM, lineHeight:1.5 }}>{template.description || template.docType?.description || 'Soumettre une demande via ce workflow'}</p>
                   </div>
                   {/* Arrow */}
                   <div style={{ width:'36px', height:'36px', borderRadius:'10px', background:T.blueSoft, border:`1.5px solid ${T.blueBorder}`, display:'flex', alignItems:'center', justifyContent:'center', color:T.blue, flexShrink:0 }}><IArrowR/></div>
