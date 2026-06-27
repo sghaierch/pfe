@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import workflowService from '../../../services/workflowService';
 import departmentService from '../../../services/departmentService';
+import API from '../../../services/api';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const IconArrowL  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
@@ -59,10 +60,15 @@ const GenerateWithAI = () => {
   const [starting,     setStarting]     = useState(false);
   const [savedMsg,     setSavedMsg]     = useState('');
   const [editingStep,  setEditingStep]  = useState(null);
-  const [allowedPosts, setAllowedPosts] = useState([]);
+  const [allowedPosts,  setAllowedPosts]  = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
+  const [docTypeId,     setDocTypeId]     = useState('');
 
   useEffect(() => {
     departmentService.getAllPosts().then(p=>setPosts(p||[])).catch(()=>setPosts([]));
+    API.get('/document-types')
+      .then(r => setDocumentTypes(r.data?.data?.documentTypes?.filter(dt => dt.isActive !== false) || []))
+      .catch(() => {});
   }, []);
 
   const handleGenerate = async () => {
@@ -97,7 +103,7 @@ const GenerateWithAI = () => {
     if (!result) return;
     setSaving(true);
     try {
-      await workflowService.create({ name:result.workflowName||'Workflow IA', description:result.description||description, projectId, isTemplate:true, steps:buildSteps(result), allowedPosts, visibility:allowedPosts.length>0?'restricted':'global', allowedRoles:[] });
+      await workflowService.create({ name:result.workflowName||'Workflow IA', description:result.description||description, projectId, isTemplate:true, docType:docTypeId||null, steps:buildSteps(result), allowedPosts, visibility:allowedPosts.length>0?'restricted':'global', allowedRoles:[] });
       setSavedMsg('SUCCESS');
       setTimeout(()=>navigate('/dashboard/company/projects/'+projectId), 1500);
     } catch (err) { setError('Erreur sauvegarde : '+err.message); }
@@ -108,7 +114,7 @@ const GenerateWithAI = () => {
     if (!result) return;
     setStarting(true);
     try {
-      const res = await workflowService.create({ name:result.workflowName||'Workflow IA', description:result.description||description, projectId, isTemplate:true, steps:buildSteps(result), allowedPosts, visibility:allowedPosts.length>0?'restricted':'global', allowedRoles:[] });
+      const res = await workflowService.create({ name:result.workflowName||'Workflow IA', description:result.description||description, projectId, isTemplate:true, docType:docTypeId||null, steps:buildSteps(result), allowedPosts, visibility:allowedPosts.length>0?'restricted':'global', allowedRoles:[] });
       const wfId = res?.data?.workflow?._id;
       if (wfId) await workflowService.start(wfId);
       setSavedMsg('SUCCESS');
@@ -192,6 +198,51 @@ const GenerateWithAI = () => {
               <IconAlert/> {error}
             </div>
           )}
+
+          {/* ── Type de document ── */}
+          <div style={{ marginTop:'16px' }}>
+            <label style={{ display:'block', fontWeight:700, fontSize:'13px', color:'#374151', marginBottom:'7px' }}>
+              Type de document <span style={{color:'#EF4444'}}>*</span>
+              <span style={{ marginLeft:'8px', fontWeight:400, fontSize:'12px', color:'#94A3B8' }}>Détermine la numérotation automatique des demandes</span>
+            </label>
+            {documentTypes.length === 0 ? (
+              <div style={{ padding:'10px 14px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'9px', fontSize:'13px', color:'#92400E' }}>
+                ⚠️ Aucun type de document — créez-en un dans <strong>Types de documents</strong> d'abord.
+              </div>
+            ) : (
+              <select
+                value={docTypeId}
+                onChange={e => setDocTypeId(e.target.value)}
+                style={{
+                  width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:'9px',
+                  border: docTypeId ? '1.5px solid #2563EB' : '1.5px solid #E2E8F0',
+                  fontSize:'14px', color: docTypeId ? '#0F172A' : '#94A3B8',
+                  outline:'none', background:'#fff', cursor:'pointer',
+                  fontFamily:"'Inter',sans-serif",
+                  boxShadow: docTypeId ? '0 0 0 3px rgba(37,99,235,0.1)' : 'none',
+                  transition:'all 0.15s',
+                }}
+              >
+                <option value="" disabled hidden>— Choisir un type de document —</option>
+                {documentTypes.map(dt => (
+                  <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
+                ))}
+              </select>
+            )}
+            {/* Aperçu numérotation */}
+            {docTypeId && (() => {
+              const sel = documentTypes.find(dt => dt._id === docTypeId);
+              if (!sel) return null;
+              const year = new Date().getFullYear().toString().slice(-2);
+              const ex = `${sel.prefix}${year}-${'1'.padStart(sel.digits, '0')}`;
+              return (
+                <div style={{ marginTop:'8px', padding:'8px 12px', background:'#EFF6FF', borderRadius:'8px', border:'1px solid #BFDBFE', fontSize:'12px', color:'#1D4ED8', fontWeight:600, display:'flex', alignItems:'center', gap:'8px' }}>
+                  <span style={{ fontFamily:'monospace', fontWeight:800 }}>{sel.prefix}</span>
+                  <span>— Numérotation auto · Ex : <strong>{ex}</strong></span>
+                </div>
+              );
+            })()}
+          </div>
 
           <button onClick={handleGenerate} disabled={generating || !description.trim()}
             style={{ marginTop:'18px', width:'100%', padding:'14px', borderRadius:'10px', border:'none', cursor:generating||!description.trim()?'not-allowed':'pointer', fontWeight:700, fontSize:'15px', background:generating||!description.trim()?'#E2E8F0':'linear-gradient(135deg,#2563EB,#7C3AED)', color:generating||!description.trim()?'#94A3B8':'#fff', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', fontFamily:"'Inter',sans-serif", boxShadow:generating||!description.trim()?'none':'0 4px 16px rgba(37,99,235,0.4)', transition:'all 0.2s' }}>
