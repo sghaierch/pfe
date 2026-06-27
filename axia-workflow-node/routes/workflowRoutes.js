@@ -89,6 +89,8 @@ router.get("/my-tasks",                       getMyTasks);           // ✅ CORR
 router.get("/my-requests",                    getMyRequests);        // ✅ CORRIGÉ : avant /:id
 router.get("/stats/overview",                 getWorkflowStats);     // ✅ CORRIGÉ : avant /:id
 router.get("/templates/active",               getActiveTemplates);   // ✅ workflows actifs pour employés
+router.get("/templates/doc-types",            getDocTypesForEmployee); // ✅ types de documents accessibles par poste
+router.get("/templates/by-doctype/:docTypeId", getWorkflowsByDocType); // ✅ workflows d'un type pour un employé
 router.get("/global/visible",                 getGlobalWorkflows);   // ✅ CORRIGÉ : avant /:id
 router.get("/audit-log",                      permitMW("company_admin", "manager"), getAuditLog); // ✅
 router.get("/users/list",                     getTenantUsers);       // ✅ CORRIGÉ : avant /:id

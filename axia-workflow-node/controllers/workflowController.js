@@ -1065,6 +1065,83 @@ exports.getActiveTemplates = async (req, res) => {
   }
 };
 
+// ── GET /workflows/templates/by-doctype/:docTypeId ───────────────────────────
+// Retourne les workflows actifs d'un type de document, filtrés par poste employé
+exports.getWorkflowsByDocType = async (req, res) => {
+  try {
+    const Workflow  = getWorkflowModel(req);
+    const userPost  = (req.user.jobTitle || '').toLowerCase().trim();
+    const docTypeId = req.params.docTypeId;
+
+    const all = await Workflow.find({
+      status:     'active',
+      isTemplate: true,
+      docType:    docTypeId,
+    }).populate('docType', 'name prefix digits description').sort({ createdAt: -1 });
+
+    // Filtrer par poste de l'employé (même logique que getActiveTemplates)
+    const visible = all.filter(wf => {
+      const allowed = wf.allowedPosts || [];
+      if (allowed.length === 0) return true;   // global → tous les employés
+      if (!userPost) return false;
+      return allowed.some(p => {
+        const pLower = p.toLowerCase().trim();
+        return pLower === userPost
+          || pLower.includes(userPost)
+          || userPost.includes(pLower);
+      });
+    });
+
+    res.json({ status: 'success', data: { workflows: visible } });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+// ── GET /workflows/templates/doc-types ───────────────────────────────────────
+// Retourne les TYPES DE DOCUMENTS distincts accessibles à l'employé connecté
+exports.getDocTypesForEmployee = async (req, res) => {
+  try {
+    const Workflow = getWorkflowModel(req);
+    const userPost = (req.user.jobTitle || '').toLowerCase().trim();
+
+    const all = await Workflow.find({
+      status:     'active',
+      isTemplate: true,
+      docType:    { $ne: null },
+    }).populate('docType', 'name prefix digits description isActive').sort({ createdAt: -1 });
+
+    // Filtrer par poste
+    const visible = all.filter(wf => {
+      const allowed = wf.allowedPosts || [];
+      if (allowed.length === 0) return true;
+      if (!userPost) return false;
+      return allowed.some(p => {
+        const pLower = p.toLowerCase().trim();
+        return pLower === userPost || pLower.includes(userPost) || userPost.includes(pLower);
+      });
+    });
+
+    // Dédupliquer par docType._id
+    const seen = new Set();
+    const docTypes = [];
+    visible.forEach(wf => {
+      const dt = wf.docType;
+      if (dt && !seen.has(String(dt._id))) {
+        seen.add(String(dt._id));
+        docTypes.push({
+          ...dt.toObject ? dt.toObject() : dt,
+          workflowCount: visible.filter(w => String(w.docType?._id) === String(dt._id)).length,
+        });
+      }
+    });
+
+    res.json({ status: 'success', data: { documentTypes: docTypes } });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
 // ── PATCH /workflows/:id/move-project ────────────────────────────────────────
 exports.moveToProject = async (req, res) => {
   try {

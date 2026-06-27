@@ -188,7 +188,7 @@ const findEmployeeStepIndex = (steps = []) => {
 const EmployeeSubmitRequest = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // ✅ Reçoit maintenant directement l'ID du workflow (plus le type de document)
+  // ✅ Lit workflowId directement (plus de passage par le type de document)
   const workflowId = searchParams.get('workflowId') || searchParams.get('template');
   const { user } = useAuth();
 
@@ -217,7 +217,7 @@ useEffect(() => {
 
   const load = async () => {
     try {
-      // ✅ NOUVELLE LOGIQUE — charge directement le workflow par son ID
+      // ✅ Charge directement le workflow par son ID
       const [wfRes, projRes] = await Promise.all([
         workflowService.getById(workflowId),
         projectService?.getAll
@@ -232,9 +232,9 @@ useEffect(() => {
 
       setWorkflow(wf);
 
-      // ✅ Récupérer le type de document depuis le workflow (populate côté backend)
-      if (wf.docType) {
-        setDocType(typeof wf.docType === 'object' ? wf.docType : null);
+      // ✅ Le type de document est populé dans le workflow
+      if (wf.docType && typeof wf.docType === 'object') {
+        setDocType(wf.docType);
       }
 
       const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
@@ -368,7 +368,7 @@ useEffect(() => {
 
       const payload = {
         name:        workflow.name + ' — ' + new Date().toLocaleDateString('fr-FR'),
-        docTypeId: workflowId,  // ← ID du workflow template utilisé
+        docTypeId: workflowId,
         description: workflow.description || '',
         ...(resolvedProjectId ? { project: resolvedProjectId } : {}),
         dueDate:     dueDate || null,
