@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import workflowService   from '../../../services/workflowService';
 import departmentService from '../../../services/departmentService';
 import projectService    from '../../../services/projectService';
+import API               from '../../../services/api';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const IconArrowL  = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
@@ -73,23 +74,26 @@ const WorkflowEditInfoPage = () => {
   const [msg,      setMsg]      = useState('');
 
   const [form, setForm] = useState({ name:'', description:'', projectId:'', dueDate:'', docType:'', postMapping:{} });
+  const [docTypes, setDocTypes] = useState([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [wfRes, postsData, projRes] = await Promise.all([
+        const [wfRes, postsData, projRes, dtRes] = await Promise.all([
           workflowService.getById(id),
           departmentService.getAllPosts(),
           projectService.getAll ? projectService.getAll() : { data:{ projects:[] } },
+          API.get('/document-types').catch(() => ({ data: { data: { documentTypes: [] } } })),
         ]);
         const wf    = wfRes?.data?.workflow;
         const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
+        setDocTypes(dtRes?.data?.data?.documentTypes || []);
         if (!wf) { setMsg('ERREUR Workflow introuvable'); setLoading(false); return; }
         if (wf.status !== 'draft') { setMsg('ERREUR Ce workflow est déjà démarré. Seuls les brouillons sont modifiables.'); setLoading(false); return; }
         setWorkflow(wf); setProjects(projs); setAllPosts(postsData||[]);
         const mapping = {};
         (wf.steps||[]).forEach(step => { mapping[step.postSlot||('slot_'+step.order)] = step.assignedPost||''; });
-        setForm({ name:wf.name||'', description:wf.description||'', projectId:wf.project?._id||wf.project||'', dueDate:wf.dueDate?wf.dueDate.slice(0,10):'', docType:wf.docType||'', postMapping:mapping });
+        setForm({ name:wf.name||'', description:wf.description||'', projectId:wf.project?._id||wf.project||'', dueDate:wf.dueDate?wf.dueDate.slice(0,10):'', docType: (wf.docType?._id || wf.docType || ''), postMapping:mapping });
       } catch (err) { setMsg('ERREUR '+(err.response?.data?.message||err.message)); }
       finally { setLoading(false); }
     };
@@ -187,27 +191,43 @@ const WorkflowEditInfoPage = () => {
           </SectionCard>
 
           {/* ── Section 2 : Type documentaire ── */}
-          <SectionCard number="2" title="Type documentaire" subtitle="Associez un type de document à ce workflow.">
-            <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-              {DOC_TYPES.map(dt => {
-                const isSel = form.docType === dt.value;
-                return (
-                  <button key={dt.value} onClick={()=>setForm(p=>({...p,docType:dt.value}))}
-                    style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${isSel?(dt.color||B):'#E2E8F0'}`, background:isSel?(dt.color?dt.color+'12':'#EFF6FF'):'#F8FAFC', color:isSel?(dt.color||B):'#64748B', fontWeight:isSel?700:500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s', boxShadow:isSel?`0 2px 8px ${dt.color||B}25`:'none' }}>
-                    {dt.label}
-                  </button>
-                );
-              })}
-            </div>
-            {form.docType && (
-              <div style={{ marginTop:'14px', padding:'12px 14px', background:'#EFF6FF', borderRadius:'9px', border:'1.5px solid #BFDBFE', fontSize:'12px', color:'#1D4ED8', fontWeight:500 }}>
-                Le document <strong>{form.docType}XXXXX</strong> sera créé automatiquement.
-                {form.docType==='DA' && ' Transformation : DA → DAC → BS → DF → BR'}
-                {form.docType==='BS' && ' Transformation : BS → DF → BR'}
-                {form.docType==='DF' && ' Transformation : DF → BR'}
-                {form.docType==='BR' && ' Document final de la chaîne.'}
+          <SectionCard number="2" title="Type documentaire" subtitle="Associez un type de document à ce workflow. Ce type détermine la numérotation automatique des demandes.">
+            {docTypes.length === 0 ? (
+              <div style={{ padding:'14px 16px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'10px', fontSize:'13px', color:'#92400E', display:'flex', alignItems:'center', gap:'8px' }}>
+                <IconAlert/>
+                Aucun type de document disponible — créez-en un dans <strong>Types de documents</strong> avant de continuer.
+              </div>
+            ) : (
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+                {/* Option "Aucun" */}
+                <button onClick={()=>setForm(p=>({...p,docType:''}))}
+                  style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${!form.docType?B:'#E2E8F0'}`, background:!form.docType?'#EFF6FF':'#F8FAFC', color:!form.docType?B:'#64748B', fontWeight:!form.docType?700:500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s' }}>
+                  Aucun (workflow simple)
+                </button>
+                {docTypes.filter(dt => dt.isActive !== false).map((dt, idx) => {
+                  const color = PALETTE[idx % PALETTE.length];
+                  const isSel = form.docType === dt._id;
+                  return (
+                    <button key={dt._id} onClick={()=>setForm(p=>({...p,docType:dt._id}))}
+                      style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${isSel?color:'#E2E8F0'}`, background:isSel?color+'18':'#F8FAFC', color:isSel?color:'#64748B', fontWeight:isSel?700:500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s', boxShadow:isSel?`0 2px 8px ${color}30`:'none' }}>
+                      {dt.prefix} — {dt.name}
+                    </button>
+                  );
+                })}
               </div>
             )}
+            {form.docType && (() => {
+              const sel = docTypes.find(dt => dt._id === form.docType);
+              if (!sel) return null;
+              const year = new Date().getFullYear().toString().slice(-2);
+              const example = `${sel.prefix}${year}-${'1'.padStart(sel.digits, '0')}`;
+              return (
+                <div style={{ marginTop:'14px', padding:'12px 16px', background:'#EFF6FF', borderRadius:'10px', border:'1.5px solid #BFDBFE', fontSize:'13px', color:'#1D4ED8', fontWeight:500, display:'flex', alignItems:'center', gap:'10px' }}>
+                  <span style={{ fontWeight:800, fontSize:'15px' }}>{sel.prefix}</span>
+                  <span>— Les demandes seront numérotées automatiquement · Exemple : <strong>{example}</strong></span>
+                </div>
+              );
+            })()}
           </SectionCard>
 
           {/* ── Section 3 : Postes responsables ── */}

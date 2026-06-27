@@ -29,7 +29,8 @@ exports.getDocumentTypes = async (req, res) => {
     const types = await DT.find().sort({ name: 1 }).lean();
 
     // Join manuel avec les workflows (évite le problème populate multi-tenant)
-    const workflows = await Workflow.find().lean();
+    // Seuls les workflows templates actifs peuvent être liés à un type de document
+    const workflows = await Workflow.find({ isTemplate: true, status: 'active' }).lean();
     const wfMap = {};
     workflows.forEach(w => { wfMap[String(w._id)] = w.name; });
 

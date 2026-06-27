@@ -103,6 +103,7 @@ exports.getWorkflows = async (req, res) => {
       : {};
     const workflows = await Workflow.find(query)
       .populate('project', 'name')
+      .populate('docType', 'name prefix digits')
       .sort({ createdAt: -1 });
     res.json({ status: 'success', data: { workflows } });
   } catch (err) {
@@ -902,6 +903,13 @@ exports.updateWorkflow = async (req, res) => {
     workflow.canvasEdges = edges;
     workflow.currentStep = 0;
 
+    // ── Mise à jour du type de document associé ──────────────────────────
+    if (req.body.docType !== undefined) {
+      workflow.docType = mongoose.Types.ObjectId.isValid(req.body.docType)
+        ? req.body.docType
+        : null;
+    }
+
     await workflow.save();
     res.json({ status: 'success', data: { workflow } });
   } catch (err) {
@@ -1037,7 +1045,7 @@ exports.getActiveTemplates = async (req, res) => {
     const all = await Workflow.find({
       status:     'active',
       isTemplate: true,
-    }).sort({ createdAt: -1 });
+    }).populate('docType', 'name prefix digits description').sort({ createdAt: -1 });
 
     const visible = all.filter(wf => {
       const allowed = wf.allowedPosts || [];

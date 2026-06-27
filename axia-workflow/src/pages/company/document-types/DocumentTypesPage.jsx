@@ -79,9 +79,10 @@ const DocumentTypesPage = () => {
       try {
         const [typesRes, wfRes] = await Promise.all([
           API.get('/document-types'),
-          API.get('/workflows').catch(() => ({ data: { data: { workflows: [] } } })),
+          API.get('/workflows/templates/active').catch(() => ({ data: { data: { workflows: [] } } })),
         ]);
         setTypes(typesRes.data?.data?.documentTypes || []);
+        // Seuls les workflows templates actifs peuvent être liés à un type de document
         setWorkflows(wfRes.data?.data?.workflows || wfRes.data?.workflows || []);
       } catch (err) {
         showMsg('ERREUR ' + (err.response?.data?.message || err.message));
