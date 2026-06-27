@@ -14,6 +14,7 @@ const IconSearch    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill
 const IconLoader    = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:'spin .9s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 const IconHash      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>;
 const IconWarn      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+const IconEye       = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>;
 const IconAlignLeft = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="13" y1="18" x2="3" y2="18"/></svg>;
 
 const B = '#2563EB';
@@ -67,6 +68,9 @@ const DocumentTypesPage = () => {
   const [editing,     setEditing]     = useState(null);
   const [saving,      setSaving]      = useState(false);
   const [deleteModal, setDeleteModal] = useState(null);
+  const [viewModal,   setViewModal]   = useState(null);
+  const [wfOfType,    setWfOfType]    = useState([]);
+  const [wfLoading,   setWfLoading]   = useState(false);
   const [search,      setSearch]      = useState('');
 
   // ✅ Le type de document ne contient plus de référence workflow.
@@ -91,6 +95,23 @@ const DocumentTypesPage = () => {
       const res = await API.get('/document-types');
       setTypes(res.data?.data?.documentTypes || []);
     } catch {}
+  };
+
+  const openView = async (type) => {
+    setViewModal(type);
+    setWfOfType([]);
+    setWfLoading(true);
+    try {
+      const res = await API.get('/workflows');
+      const all = res.data?.data?.workflows || [];
+      // Filtrer les workflows qui appartiennent à ce type de document
+      const filtered = all.filter(w =>
+        w.docType === type._id ||
+        (w.docType && (w.docType._id === type._id || String(w.docType) === String(type._id)))
+      );
+      setWfOfType(filtered);
+    } catch { setWfOfType([]); }
+    finally { setWfLoading(false); }
   };
 
   const showMsg = (text) => { setMsg(text); setTimeout(()=>setMsg(''), 3500); };
@@ -167,6 +188,120 @@ const DocumentTypesPage = () => {
       `}</style>
 
       <div style={{ padding:'32px', maxWidth:'1200px', margin:'0 auto', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+
+        {/* ── View Modal ── */}
+        {viewModal && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(6px)', padding:'20px' }}>
+            <div style={{ background:'#fff', borderRadius:'24px', width:'100%', maxWidth:'680px', maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 32px 80px rgba(0,0,0,0.25)' }}>
+
+              {/* Header modale */}
+              <div style={{ padding:'28px 28px 20px', borderBottom:'1.5px solid #F1F5F9', display:'flex', alignItems:'flex-start', gap:'16px', flexShrink:0 }}>
+                <div style={{ width:'52px', height:'52px', borderRadius:'14px', background:`${prefixColor(viewModal.prefix)}15`, border:`1.5px solid ${prefixColor(viewModal.prefix)}30`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:'18px', color:prefixColor(viewModal.prefix), letterSpacing:'1px' }}>{viewModal.prefix}</span>
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <h2 style={{ margin:'0 0 4px', fontSize:'20px', fontWeight:900, color:'#0F172A' }}>{viewModal.name}</h2>
+                  {viewModal.description && <p style={{ margin:'0 0 10px', fontSize:'13px', color:'#64748B', lineHeight:1.5 }}>{viewModal.description}</p>}
+                  <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 12px', borderRadius:'20px', background:`${prefixColor(viewModal.prefix)}12`, color:prefixColor(viewModal.prefix), fontSize:'12px', fontWeight:700, border:`1px solid ${prefixColor(viewModal.prefix)}25` }}>
+                      # Préfixe : {viewModal.prefix}
+                    </span>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 12px', borderRadius:'20px', background:'#F0FDF4', color:'#16A34A', fontSize:'12px', fontWeight:700, border:'1px solid #BBF7D0' }}>
+                      🔢 {viewModal.digits} chiffres
+                    </span>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 12px', borderRadius:'20px', background:'#EFF6FF', color:'#2563EB', fontSize:'12px', fontWeight:700, border:'1px solid #BFDBFE', fontFamily:'monospace' }}>
+                      Ex : {viewModal.example || `${viewModal.prefix}26-001`}
+                    </span>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:700, background: viewModal.isActive ? '#F0FDF4' : '#FEF2F2', color: viewModal.isActive ? '#16A34A' : '#DC2626', border: viewModal.isActive ? '1px solid #BBF7D0' : '1px solid #FECACA' }}>
+                      <span style={{ width:'6px', height:'6px', borderRadius:'50%', background: viewModal.isActive ? '#16A34A' : '#DC2626', display:'inline-block' }}/>
+                      {viewModal.isActive ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setViewModal(null)}
+                  style={{ width:'36px', height:'36px', borderRadius:'10px', border:'1.5px solid #E2E8F0', background:'#F8FAFC', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#64748B', flexShrink:0 }}>
+                  <IconX/>
+                </button>
+              </div>
+
+              {/* Body scrollable */}
+              <div style={{ flex:1, overflowY:'auto', padding:'24px 28px' }}>
+
+                {/* Section workflows */}
+                <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'16px' }}>
+                  <div style={{ width:'32px', height:'32px', borderRadius:'9px', background:'#EFF6FF', border:'1.5px solid #BFDBFE', display:'flex', alignItems:'center', justifyContent:'center', color:'#2563EB', flexShrink:0 }}>
+                    <IconGear/>
+                  </div>
+                  <div>
+                    <p style={{ margin:0, fontWeight:800, fontSize:'14px', color:'#0F172A' }}>Workflows associés</p>
+                    <p style={{ margin:0, fontSize:'12px', color:'#64748B' }}>Workflows utilisant ce type de document</p>
+                  </div>
+                  {!wfLoading && (
+                    <span style={{ marginLeft:'auto', background:'#EFF6FF', color:'#2563EB', padding:'3px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:700, border:'1px solid #BFDBFE' }}>
+                      {wfOfType.length} workflow(s)
+                    </span>
+                  )}
+                </div>
+
+                {wfLoading ? (
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', padding:'32px', color:'#94A3B8', fontSize:'13px' }}>
+                    <IconLoader/> Chargement des workflows…
+                  </div>
+                ) : wfOfType.length === 0 ? (
+                  <div style={{ padding:'28px', textAlign:'center', background:'#F8FAFC', borderRadius:'12px', border:'1.5px dashed #E2E8F0' }}>
+                    <p style={{ margin:'0 0 4px', fontSize:'24px' }}>📋</p>
+                    <p style={{ margin:'0 0 4px', fontWeight:700, fontSize:'14px', color:'#374151' }}>Aucun workflow lié</p>
+                    <p style={{ margin:0, fontSize:'12px', color:'#94A3B8' }}>Créez un workflow et associez-lui ce type depuis l'éditeur.</p>
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                    {wfOfType.map(wf => {
+                      const statusColors = {
+                        draft:     { bg:'#FFFBEB', color:'#D97706', border:'#FDE68A', label:'Brouillon' },
+                        active:    { bg:'#F0FDF4', color:'#16A34A', border:'#BBF7D0', label:'Actif' },
+                        completed: { bg:'#EFF6FF', color:'#2563EB', border:'#BFDBFE', label:'Terminé' },
+                        archived:  { bg:'#F8FAFC', color:'#64748B', border:'#E2E8F0', label:'Archivé' },
+                        rejected:  { bg:'#FEF2F2', color:'#DC2626', border:'#FECACA', label:'Rejeté' },
+                      };
+                      const sc = statusColors[wf.status] || statusColors.draft;
+                      return (
+                        <div key={wf._id} style={{ display:'flex', alignItems:'center', gap:'14px', padding:'14px 16px', background:'#fff', borderRadius:'12px', border:'1.5px solid #E2E8F0', transition:'border-color 0.15s' }}>
+                          <div style={{ width:'38px', height:'38px', borderRadius:'10px', background:'#EFF6FF', border:'1.5px solid #BFDBFE', display:'flex', alignItems:'center', justifyContent:'center', color:'#2563EB', flexShrink:0 }}>
+                            <IconGear/>
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <p style={{ margin:'0 0 3px', fontWeight:700, fontSize:'14px', color:'#0F172A', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{wf.name}</p>
+                            <div style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap' }}>
+                              <span style={{ fontSize:'11px', color:'#94A3B8' }}>{wf.steps?.length || 0} étape(s)</span>
+                              {wf.isTemplate && <span style={{ background:'#F5F3FF', color:'#7C3AED', padding:'1px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:700, border:'1px solid #EDE9FE' }}>Template</span>}
+                              {wf.docNumber && <span style={{ fontFamily:'monospace', background:'#F0FDF4', color:'#16A34A', padding:'1px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:700, border:'1px solid #BBF7D0' }}>{wf.docNumber}</span>}
+                            </div>
+                          </div>
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:700, background:sc.bg, color:sc.color, border:`1px solid ${sc.border}`, flexShrink:0 }}>
+                            <span style={{ width:'5px', height:'5px', borderRadius:'50%', background:sc.color, display:'inline-block' }}/>
+                            {sc.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding:'16px 28px', borderTop:'1.5px solid #F1F5F9', display:'flex', justifyContent:'flex-end', gap:'10px', flexShrink:0 }}>
+                <button onClick={() => { setViewModal(null); handleEdit(viewModal); }}
+                  style={{ display:'flex', alignItems:'center', gap:'7px', padding:'10px 20px', borderRadius:'10px', border:'1.5px solid #E2E8F0', background:'#F8FAFC', cursor:'pointer', fontWeight:600, fontSize:'14px', color:'#475569', fontFamily:"'Inter',sans-serif" }}>
+                  <IconEdit/> Modifier
+                </button>
+                <button onClick={() => setViewModal(null)}
+                  style={{ padding:'10px 24px', borderRadius:'10px', border:'none', background:'#2563EB', color:'#fff', cursor:'pointer', fontWeight:700, fontSize:'14px', fontFamily:"'Inter',sans-serif", boxShadow:'0 4px 12px rgba(37,99,235,0.3)' }}>
+                  Fermer
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Delete Modal ── */}
         {deleteModal && (
@@ -352,6 +487,10 @@ const DocumentTypesPage = () => {
 
                   {/* Actions */}
                   <div style={{ display:'flex', gap:'6px' }}>
+                    <button className="dt-action-btn" onClick={() => openView(type)}
+                      style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#F0FDF4', color:'#16A34A', border:'1.5px solid #BBF7D0', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }} title="Voir les détails">
+                      <IconEye/>
+                    </button>
                     <button className="dt-action-btn" onClick={() => handleEdit(type)}
                       style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#EFF6FF', color:B, border:'1.5px solid #BFDBFE', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }} title="Modifier">
                       <IconEdit/>
