@@ -220,45 +220,15 @@ const CreateWorkflowFromTemplate = () => {
                 ⚠️ Aucun type de document — créez-en un dans <strong style={{marginLeft:'4px'}}>Types de documents</strong> d'abord.
               </div>
             ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                {documentTypes.map((dt, idx) => {
-                  const color = DOC_COLORS[idx % DOC_COLORS.length];
-                  const isSel = form.documentTypeId === dt._id;
-                  return (
-                    <button key={dt._id}
-                      onClick={() => setForm(p=>({...p, documentTypeId: dt._id}))}
-                      style={{
-                        display:'flex', alignItems:'center', gap:'14px',
-                        padding:'12px 16px', borderRadius:'10px', textAlign:'left',
-                        border: isSel ? `2px solid ${color}` : '1.5px solid #E2E8F0',
-                        background: isSel ? color+'0f' : '#fff',
-                        cursor:'pointer', fontFamily:"'Inter',sans-serif",
-                        transition:'all 0.15s', outline:'none',
-                        boxShadow: isSel ? `0 2px 10px ${color}20` : 'none',
-                      }}>
-                      {/* Cercle sélection */}
-                      <div style={{
-                        width:'18px', height:'18px', borderRadius:'50%', flexShrink:0,
-                        border: isSel ? `5px solid ${color}` : '2px solid #CBD5E1',
-                        background: '#fff', transition:'all 0.15s',
-                      }}/>
-                      {/* Préfixe */}
-                      <span style={{ fontFamily:'monospace', fontWeight:800, fontSize:'14px', color: isSel ? color : '#374151', minWidth:'32px' }}>
-                        {dt.prefix}
-                      </span>
-                      {/* Séparateur */}
-                      <span style={{ color:'#E2E8F0', fontSize:'16px' }}>|</span>
-                      {/* Nom */}
-                      <span style={{ fontWeight: isSel ? 700 : 500, fontSize:'13px', color: isSel ? color : '#475569', flex:1 }}>
-                        {dt.name}
-                      </span>
-                      {isSel && (
-                        <span style={{ fontSize:'12px', color:color, fontWeight:700 }}>✓</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              <SSelect
+                value={form.documentTypeId}
+                onChange={e => setForm(p => ({...p, documentTypeId: e.target.value}))}
+              >
+                <option value="">— Choisir un type de document —</option>
+                {documentTypes.map(dt => (
+                  <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
+                ))}
+              </SSelect>
             )}
             {/* Aperçu numérotation si sélectionné */}
             {selectedDocType && (

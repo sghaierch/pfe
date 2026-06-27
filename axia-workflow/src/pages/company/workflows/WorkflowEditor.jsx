@@ -1113,40 +1113,29 @@ form: {
             {workflowName || 'Editeur de Workflow'}
           </span>
 
-          {/* ✅ Sélecteur type de document — pills dans la topbar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#0f172a', padding: '4px 8px', borderRadius: '8px', border: '1px solid #334155' }}>
-            
-            {docTypes.length === 0 ? (
-              <span style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic' }}>Aucun type…</span>
-            ) : (
-              docTypes.map((dt, idx) => {
-                const COLORS = ['#3b82f6','#f59e0b','#8b5cf6','#10b981','#0ea5e9','#ec4899'];
-                const c = COLORS[idx % COLORS.length];
-                const isSel = docType === dt._id;
-                return (
-                  <button
-                    key={dt._id}
-                    onClick={() => setDocType(isSel ? '' : dt._id)}
-                    title={dt.name}
-                    style={{
-                      padding: '3px 10px', borderRadius: '20px', border: 'none',
-                      background: isSel ? c : 'transparent',
-                      color: isSel ? '#fff' : '#94a3b8',
-                      fontSize: '11px', fontWeight: isSel ? 700 : 500,
-                      cursor: 'pointer', whiteSpace: 'nowrap',
-                      transition: 'all 0.15s',
-                      outline: isSel ? 'none' : `1px solid #334155`,
-                    }}
-                  >
-                    {dt.prefix}
-                  </button>
-                );
-              })
-            )}
-            {!docType && docTypes.length > 0 && (
-              <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 700, marginLeft: '2px' }}>●</span>
-            )}
-          </div>
+          {/* ✅ Sélecteur type de document — déroulant */}
+          <select
+            value={docType}
+            onChange={e => setDocType(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '7px',
+              border: docType ? '1.5px solid #3b82f6' : '1.5px solid #475569',
+              background: docType ? '#1e3a5f' : '#334155',
+              color: docType ? '#93c5fd' : '#94a3b8',
+              fontSize: '13px',
+              fontWeight: docType ? 700 : 400,
+              cursor: 'pointer',
+              fontFamily: "'Inter',sans-serif",
+              minWidth: '180px',
+              outline: 'none',
+            }}
+          >
+            <option value="">📄 Type de document…</option>
+            {docTypes.map(dt => (
+              <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
+            ))}
+          </select>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
