@@ -188,7 +188,9 @@ const findEmployeeStepIndex = (steps = []) => {
 const EmployeeSubmitRequest = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const templateId = searchParams.get('template');
+  // ✅ Lit workflowId (nouveau) ou template (ancien) pour compatibilité
+  const workflowId = searchParams.get('workflowId') || searchParams.get('template');
+  const templateId = workflowId; // alias pour le reste du code
   const { user } = useAuth();
 
   const [workflow,    setWorkflow]    = useState(null);
@@ -210,26 +212,16 @@ const EmployeeSubmitRequest = () => {
  // ── Chargement du template ────────────────────────────────────────────────
 useEffect(() => {
   if (!templateId) {
-    setMsg('Aucun identifiant de template fourni.');
+    setMsg('Aucun identifiant de workflow fourni.');
     setLoading(false);
     return;
   }
 
   const load = async () => {
     try {
-      // === NOUVELLE LOGIQUE ===
-      const docTypeRes = await API.get(`/document-types/${templateId}`);
-      const docType = docTypeRes.data?.data?.documentType || docTypeRes.data?.documentType;
-      setDocType(docType);  // ← déjà déclaré dans ton state mais commenté
-      if (!docType) throw new Error('Type de document introuvable');
-
-      const workflowId = docType.defaultWorkflow;
-
-      if (!workflowId) throw new Error('Aucun workflow par défaut configuré pour ce type de document');
-
-      // Chargement du workflow réel
+      // ✅ Charge directement le workflow par son ID
       const [wfRes, projRes] = await Promise.all([
-        workflowService.getById(workflowId),           // ← On passe workflowId au lieu de templateId
+        workflowService.getById(workflowId),
         projectService?.getAll
           ? projectService.getAll()
           : Promise.resolve({ data: { projects: [] } }),
@@ -237,11 +229,15 @@ useEffect(() => {
 
       const wf = wfRes?.data?.workflow || wfRes?.workflow || null;
       if (!wf) throw new Error('Workflow introuvable');
-
       if (!wf.isTemplate) throw new Error("Ce workflow n'est pas un template disponible");
       if (wf.status !== 'active') throw new Error("Ce type de demande n'est plus disponible");
 
       setWorkflow(wf);
+
+      // ✅ Le type de document est populé dans le workflow
+      if (wf.docType && typeof wf.docType === 'object') {
+        setDocType(wf.docType);
+      }
 
       const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
       setProjects(projs);
@@ -269,9 +265,6 @@ useEffect(() => {
 
       setFieldValues(init);
 
-      // Optionnel : garder le docType pour usage ultérieur
-       setDocType(docType);
-
     } catch (err) {
       console.error(err);
       setMsg('Erreur : ' + (err.response?.data?.message || err.message));
@@ -281,7 +274,7 @@ useEffect(() => {
   };
 
   load();
-}, [templateId, user]);
+}, [workflowId, user]);
 
   // ── Champs du formulaire employé ─────────────────────────────────────────
   const empStepIndex = useMemo(() => {
@@ -377,11 +370,11 @@ useEffect(() => {
 
       const payload = {
         name:        workflow.name + ' — ' + new Date().toLocaleDateString('fr-FR'),
-        docTypeId: templateId,
+        docTypeId: workflowId,
         description: workflow.description || '',
         ...(resolvedProjectId ? { project: resolvedProjectId } : {}),
         dueDate:     dueDate || null,
-        templateRef: templateId,
+        templateRef: workflowId,
         steps:       stepsPayload,
         isTemplate:  false,
         visibility:  'global',
