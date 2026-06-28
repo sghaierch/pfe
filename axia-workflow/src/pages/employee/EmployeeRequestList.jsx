@@ -46,11 +46,42 @@ const EmployeeRequestList = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        // ✅ Essaie d'abord la route doc-types (groupée par type)
         const res  = await API.get('/workflows/templates/doc-types');
         const list = res.data?.data?.documentTypes || [];
         setDocTypes(list);
       } catch {
-        setError('Impossible de charger les types de demandes.');
+        // ✅ Fallback : charge les workflows actifs directement
+        try {
+          const res2 = await API.get('/workflows/templates/active');
+          const wfs  = res2.data?.data?.workflows || [];
+          // Dédupliquer par docType
+          const seen = new Set();
+          const fakeDocTypes = [];
+          wfs.forEach(wf => {
+            const dt = wf.docType;
+            if (dt && !seen.has(String(dt._id || dt))) {
+              seen.add(String(dt._id || dt));
+              fakeDocTypes.push({
+                ...(typeof dt === 'object' ? dt : { _id: dt, prefix: '', name: wf.name }),
+                workflowCount: 1,
+              });
+            }
+          });
+          if (fakeDocTypes.length > 0) {
+            setDocTypes(fakeDocTypes);
+          } else {
+            // Dernier fallback : afficher les workflows directement comme types
+            setDocTypes(wfs.map(wf => ({
+              _id: wf._id, name: wf.name,
+              prefix: wf.docType?.prefix || '?',
+              digits: 3, workflowCount: 1,
+              description: wf.description,
+            })));
+          }
+        } catch {
+          setError('Impossible de charger les types de demandes.');
+        }
       } finally { setLoadingTypes(false); }
     };
     load();
