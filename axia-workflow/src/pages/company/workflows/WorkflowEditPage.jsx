@@ -50,10 +50,19 @@ const WorkflowEditPage = () => {
     load();
   }, [id]);
 
-  const handleSave = async ({ steps, nodes, edges, visibility, allowedRoles, allowedPosts }) => {
+  // ✅ CORRIGÉ — docType transmis au backend lors de la sauvegarde
+  const handleSave = async ({ steps, nodes, edges, visibility, allowedRoles, allowedPosts, docType }) => {
     await workflowService.update(id, {
-      name: workflow.name, description: workflow.description, dueDate: workflow.dueDate,
-      steps, nodes, edges, visibility, allowedRoles, allowedPosts,
+      name:        workflow.name,
+      description: workflow.description,
+      dueDate:     workflow.dueDate,
+      steps,
+      nodes,
+      edges,
+      visibility,
+      allowedRoles,
+      allowedPosts,
+      docType: docType || null,   // ✅ AJOUT — ObjectId du type de document
     });
     navigate('/dashboard/company/workflows/' + id);
   };
@@ -84,22 +93,23 @@ const WorkflowEditPage = () => {
     return nodes.slice(0,-1).map((node,i) => ({ from:node.id, to:nodes[i+1].id, label:'' }));
   };
 
+  // ✅ Extraire l'ID du docType (peut être un objet populé ou un string)
+  const getInitialDocType = (wf) => {
+    if (!wf?.docType) return '';
+    if (typeof wf.docType === 'object') return wf.docType._id || '';
+    return wf.docType || '';
+  };
+
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) return (
     <>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{
-        display:'flex', alignItems:'center', justifyContent:'center',
-        height:'100vh', background:'#F1F5F9',
-        fontFamily:"'Inter',-apple-system,sans-serif",
-      }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#F1F5F9', fontFamily:"'Inter',-apple-system,sans-serif" }}>
         <div style={{ textAlign:'center' }}>
           <div style={{ width:'56px', height:'56px', borderRadius:'14px', background:'#EFF6FF', border:'1.5px solid #BFDBFE', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
             <IconLoader/>
           </div>
-          <p style={{ color:'#64748B', fontWeight:600, fontSize:'15px', margin:0 }}>
-            Chargement du workflow…
-          </p>
+          <p style={{ color:'#64748B', fontWeight:600, fontSize:'15px', margin:0 }}>Chargement du workflow…</p>
         </div>
       </div>
     </>
@@ -107,41 +117,14 @@ const WorkflowEditPage = () => {
 
   // ── Error state ────────────────────────────────────────────────────────────
   if (error) return (
-    <div style={{
-      display:'flex', alignItems:'center', justifyContent:'center',
-      height:'100vh', background:'#F1F5F9',
-      fontFamily:"'Inter',-apple-system,sans-serif",
-    }}>
-      <div style={{
-        textAlign:'center', background:'#fff', padding:'44px 40px',
-        borderRadius:'20px', boxShadow:'0 8px 32px rgba(0,0,0,0.1)',
-        maxWidth:'480px', width:'90%', border:'1.5px solid #E2E8F0',
-      }}>
-        <div style={{
-          width:'60px', height:'60px', borderRadius:'16px',
-          background:'#FEF2F2', border:'1.5px solid #FECACA',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          margin:'0 auto 20px',
-        }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#F1F5F9', fontFamily:"'Inter',-apple-system,sans-serif" }}>
+      <div style={{ textAlign:'center', background:'#fff', padding:'44px 40px', borderRadius:'20px', boxShadow:'0 8px 32px rgba(0,0,0,0.1)', maxWidth:'480px', width:'90%', border:'1.5px solid #E2E8F0' }}>
+        <div style={{ width:'60px', height:'60px', borderRadius:'16px', background:'#FEF2F2', border:'1.5px solid #FECACA', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
           <IconAlert/>
         </div>
-        <h2 style={{ color:'#DC2626', margin:'0 0 12px', fontSize:'18px', fontWeight:800, letterSpacing:'-0.2px' }}>
-          Modification impossible
-        </h2>
-        <p style={{ color:'#64748B', margin:'0 0 28px', lineHeight:1.7, fontSize:'14px' }}>
-          {error}
-        </p>
-        <button
-          onClick={handleCancel}
-          style={{
-            display:'inline-flex', alignItems:'center', gap:'7px',
-            padding:'11px 24px', borderRadius:'10px',
-            background:'#2563EB', color:'#fff', border:'none',
-            fontWeight:700, cursor:'pointer', fontSize:'14px',
-            fontFamily:"'Inter',sans-serif",
-            boxShadow:'0 4px 14px rgba(37,99,235,0.4)',
-          }}
-        >
+        <h2 style={{ color:'#DC2626', margin:'0 0 12px', fontSize:'18px', fontWeight:800 }}>Modification impossible</h2>
+        <p style={{ color:'#64748B', margin:'0 0 28px', lineHeight:1.7, fontSize:'14px' }}>{error}</p>
+        <button onClick={handleCancel} style={{ display:'inline-flex', alignItems:'center', gap:'7px', padding:'11px 24px', borderRadius:'10px', background:'#2563EB', color:'#fff', border:'none', fontWeight:700, cursor:'pointer', fontSize:'14px', fontFamily:"'Inter',sans-serif", boxShadow:'0 4px 14px rgba(37,99,235,0.4)' }}>
           <IconArrowL/> Retour au workflow
         </button>
       </div>
@@ -158,6 +141,7 @@ const WorkflowEditPage = () => {
       initialVisibility={workflow?.visibility || 'global'}
       initialAllowedRoles={workflow?.allowedRoles || []}
       initialAllowedPosts={workflow?.allowedPosts || []}
+      initialDocType={getInitialDocType(workflow)}  // ✅ AJOUT — pré-remplit le select
       onSave={handleSave}
       onCancel={handleCancel}
     />
