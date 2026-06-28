@@ -31,17 +31,15 @@ const PALETTE_ITEMS = [
 ];
 
 const FIELD_TYPES = [
-  { type: 'text',        label: 'Texte',        icon: 'T'   },
-  { type: 'number',      label: 'Nombre',       icon: '123' },
-  { type: 'date',        label: 'Date',         icon: 'D'   },
-  { type: 'select',      label: 'Liste',        icon: 'L'   },
-  { type: 'textarea',    label: 'Zone texte',   icon: 'TT'  },
-  { type: 'file',        label: 'Fichier',      icon: 'F'   },
-  { type: 'checkbox',    label: 'Case',         icon: 'CB'  },
-  { type: 'signature',   label: 'Signature',    icon: 'SG'  },
-  { type: 'table',       label: 'Tableau',      icon: 'TB'  },
-  { type: 'auto_user',   label: 'Demandeur',    icon: '👤'  },
-  { type: 'auto_status', label: 'Statut Auto',  icon: '⚙'  },
+  { type: 'text',      label: 'Texte',      icon: 'T',  color: '#2563EB' },
+  { type: 'number',    label: 'Nombre',     icon: '123',color: '#7C3AED' },
+  { type: 'date',      label: 'Date',       icon: 'D',  color: '#0891B2' },
+  { type: 'select',    label: 'Liste',      icon: 'L',  color: '#D97706' },
+  { type: 'textarea',  label: 'Zone texte', icon: 'TT', color: '#059669' },
+  { type: 'file',      label: 'Fichier',    icon: 'F',  color: '#DC2626' },
+  { type: 'checkbox',  label: 'Case',       icon: '✓',  color: '#64748B' },
+  { type: 'signature', label: 'Signature',  icon: 'SG', color: '#7C3AED' },
+  { type: 'table',     label: 'Tableau',    icon: '⊞',  color: '#0891B2' },
 ];
 
 // ─── CanvasNode ───────────────────────────────────────────────────────────────
@@ -187,13 +185,14 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity:    isDragging ? 0.4 : 1,
-    background: '#fff',
-    borderRadius: '6px',
-    border:     isDragging ? '2px dashed #2563EB' : '1px solid #e2e8f0',
-    padding:    '8px',
-    marginBottom: '6px',
-    cursor:     'default',
+    opacity:     isDragging ? 0.5 : 1,
+    background:  isDragging ? '#EFF6FF' : '#fff',
+    borderRadius:'10px',
+    border:      isDragging ? '2px dashed #2563EB' : '1.5px solid #E2E8F0',
+    padding:     '10px 12px',
+    marginBottom:'8px',
+    cursor:      'default',
+    boxShadow:   isDragging ? '0 4px 14px rgba(37,99,235,0.15)' : '0 1px 4px rgba(0,0,0,0.04)',
   };
 
   return (
@@ -215,13 +214,16 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
         </span>
 
         {/* Badge type */}
-        <span style={{
-          background: '#e0e7ff', color: '#2563EB',
-          padding: '1px 6px', borderRadius: '3px',
-          fontSize: '10px', fontWeight: 700, flexShrink: 0,
-        }}>
-          {FIELD_TYPES.find((f) => f.type === field.type)?.icon || 'T'}
-        </span>
+        {(() => {
+          const ft = FIELD_TYPES.find(f => f.type === field.type);
+          const isAuto = ['auto_user','auto_status','auto_number'].includes(field.type);
+          const bc = ft?.color || (isAuto ? '#D97706' : '#64748B');
+          return (
+            <span style={{ background:`${bc}15`, color:bc, border:`1px solid ${bc}30`, padding:'2px 7px', borderRadius:'5px', fontSize:'10px', fontWeight:800, flexShrink:0, fontFamily:'monospace' }}>
+              {ft?.icon || (isAuto ? '⚡' : 'T')}
+            </span>
+          );
+        })()}
 
         {/* Label éditable */}
         <input
@@ -233,12 +235,11 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
         {/* Supprimer */}
         <button
           onClick={() => removeField(fi)}
-          style={{
-            background: '#fee2e2', color: '#dc2626', border: 'none',
-            width: '20px', height: '20px', borderRadius: '4px',
-            cursor: 'pointer', fontSize: '11px', fontWeight: 700, flexShrink: 0,
-          }}
-        >X</button>
+          title="Supprimer"
+          style={{ background:'#FEF2F2', color:'#DC2626', border:'1px solid #FECACA', width:'22px', height:'22px', borderRadius:'6px', cursor:'pointer', fontSize:'15px', fontWeight:900, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, transition:'all 0.12s' }}
+          onMouseEnter={e=>{e.currentTarget.style.background='#DC2626';e.currentTarget.style.color='#fff';}}
+          onMouseLeave={e=>{e.currentTarget.style.background='#FEF2F2';e.currentTarget.style.color='#DC2626';}}
+        >×</button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -622,9 +623,9 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
           Choisissez comment assigner cette étape :
         </p>
 
-        <div style={{ marginBottom: '12px' }}>
+        <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
-            Poste responsable de cette étape
+            1. Par poste (recommandé)
           </label>
           <select
             value={node.assignedPost || ''}
@@ -637,7 +638,7 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
             }}
             style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }}
           >
-            <option value="" disabled hidden>-- Choisir un poste --</option>
+            <option value="">-- Choisir un poste --</option>
             {posts.map((p) => (
               <option key={p._id} value={p.name}>
                 {p.name} {p.departmentName ? '(' + p.departmentName + ')' : ''}
@@ -646,11 +647,70 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
           </select>
         </div>
 
-        {node.assignedPost && (
-          <div style={{ padding: '10px 12px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px' }}>✅</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0' }}>
+          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>OU</span>
+          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+        </div>
+
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+            2. Par personne spécifique
+          </label>
+          {users.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '12px' }}>Chargement...</p>
+          ) : (
+            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <div
+                onClick={() => {
+                  onChange('assignedTo', null);
+                  onChange('assignedToName', '');
+                  onChange('assignedPost', '');
+                  onChange('assignedPostName', '');
+                }}
+                style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', color: '#64748b', borderBottom: '1px solid #f1f5f9', background: !node.assignedTo ? '#eff6ff' : '#fff' }}
+              >
+                Aucun (utiliser le poste)
+              </div>
+              {users.map((u) => {
+                const isSelected = node.assignedTo === u._id;
+                return (
+                  <div
+                    key={u._id}
+                    onClick={() => {
+                      onChange('assignedTo', u._id);
+                      onChange('assignedToName', u.firstName + ' ' + u.lastName);
+                      onChange('assignedPost', '');
+                      onChange('assignedPostName', '');
+                      onChange('assignedRole', '');
+                    }}
+                    style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: isSelected ? '#eff6ff' : '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}
+                  >
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isSelected ? '#2563EB' : '#e0e7ff', color: isSelected ? '#fff' : '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', flexShrink: 0 }}>
+                      {u.firstName.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: '13px', color: isSelected ? '#2563EB' : '#0f172a' }}>
+                        {u.firstName + ' ' + u.lastName}
+                      </p>
+                      <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
+                        {u.jobTitle || u.role?.name || ''}
+                      </p>
+                    </div>
+                    {isSelected && <span style={{ color: '#2563EB', fontWeight: 700 }}>✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {(node.assignedPost || node.assignedTo) && (
+          <div style={{ marginTop: '10px', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
             <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#166534' }}>
-              Assigné au poste : <strong>{node.assignedPost}</strong>
+              {node.assignedTo
+                ? '✓ Assigné à : ' + (node.assignedToName || 'Utilisateur sélectionné')
+                : '✓ Assigné au poste : ' + (node.assignedPostName || node.assignedPost)}
             </p>
           </div>
         )}
@@ -673,9 +733,20 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
                 draggable
                 onDragStart={(e) => e.dataTransfer.setData('fieldType', ft.type)}
                 onClick={() => addField(ft.type)}
-                style={{ padding: '4px 8px', borderRadius: '5px', background: '#e0e7ff', color: '#2563EB', fontSize: '11px', fontWeight: 700, cursor: 'grab', userSelect: 'none' }}
+                style={{
+                  padding: '5px 10px', borderRadius: '7px',
+                  background: '#fff',
+                  border: `1.5px solid ${ft.color || '#2563EB'}30`,
+                  color: ft.color || '#2563EB',
+                  fontSize: '11px', fontWeight: 700,
+                  cursor: 'pointer', userSelect: 'none',
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = (ft.color||'#2563EB')+'15'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
               >
-                {ft.icon} {ft.label}
+                <span>{ft.icon}</span> {ft.label}
               </div>
             ))}
           </div>
