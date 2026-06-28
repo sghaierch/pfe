@@ -5,7 +5,7 @@ import departmentService from '../../../services/departmentService';
 const IconBuilding  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M9 22V12h6v10M3 9h18"/></svg>;
 const IconBriefcase = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>;
 const IconEdit      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-const IconTrash     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
+const IconTrash = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="10" y2="17"/><line x1="14" y1="12" x2="14" y2="17"/></svg>;
 const IconPlus      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconSave      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 const IconX         = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
@@ -136,16 +136,16 @@ const DepartmentsList = () => {
     setActivePostDept(deptId);
   };
 
-  const handleDeleteConfirm = async () => {
+const handleArchiveConfirm = async () => {
     if (!deleteModal) return;
     try {
       if (deleteModal.type === 'dept') {
-        await departmentService.deleteDepartment(deleteModal.item._id);
-        showMsg('SUCCESS Département supprimé');
+        await departmentService.archiveDepartment(deleteModal.item._id);
+        showMsg('SUCCESS Département archivé');
         fetchDepartments();
       } else {
-        await departmentService.deletePost(deleteModal.item._id);
-        showMsg('SUCCESS Poste supprimé');
+        await departmentService.archivePost(deleteModal.item._id);
+        showMsg('SUCCESS Poste archivé');
         fetchPostsForDept(deleteModal.deptId);
         fetchDepartments();
       }
@@ -187,19 +187,19 @@ const DepartmentsList = () => {
         {deleteModal && (
           <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(4px)' }}>
             <div style={{ background:'#fff', borderRadius:'20px', padding:'32px', maxWidth:'400px', width:'90%', boxShadow:'0 24px 60px rgba(0,0,0,0.2)', textAlign:'center' }}>
-              <div style={{ width:'52px', height:'52px', borderRadius:'13px', background:'#FEF2F2', border:'1.5px solid #FECACA', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', color:'#DC2626' }}>
+              <div style={{ width:'52px', height:'52px', borderRadius:'13px', background:'#FFF7ED', border:'1.5px solid #FED7AA', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', color:'#F59E0B' }}>
                 <IconTrash/>
               </div>
               <h3 style={{ margin:'0 0 8px', fontSize:'17px', fontWeight:800, color:'#0F172A' }}>
-                Supprimer {deleteModal.type === 'dept' ? 'le département' : 'le poste'}
+                Archiver {deleteModal.type === 'dept' ? 'le département' : 'le poste'}
               </h3>
               <p style={{ margin:'0 0 24px', color:'#64748B', fontSize:'14px', lineHeight:1.6 }}>
-                Voulez-vous vraiment supprimer <strong style={{color:'#0F172A'}}>{deleteModal.item.name}</strong> ?
-                {deleteModal.type === 'dept' && ' Tous les postes associés seront désassociés.'}
+                Voulez-vous vraiment archiver <strong style={{color:'#0F172A'}}>{deleteModal.item.name}</strong> ?
+                {deleteModal.type === 'dept' && ' Tous les postes de ce département seront aussi archivés.'}
               </p>
               <div style={{ display:'flex', gap:'10px' }}>
                 <button onClick={() => setDeleteModal(null)} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'1.5px solid #E2E8F0', background:'#fff', fontWeight:600, cursor:'pointer', fontSize:'14px', color:'#475569', fontFamily:"'Inter',sans-serif" }}>Annuler</button>
-                <button onClick={handleDeleteConfirm} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'none', background:'#DC2626', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:'14px', fontFamily:"'Inter',sans-serif" }}>Supprimer</button>
+                <button onClick={handleArchiveConfirm} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'none', background:'#F59E0B', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:'14px', fontFamily:"'Inter',sans-serif" }}>Archiver</button>
               </div>
             </div>
           </div>
@@ -323,14 +323,14 @@ const DepartmentsList = () => {
                         </div>
                       </div>
 
-                      {/* Actions */}
+                     {/* Actions */}
                       <div style={{ display:'flex', gap:'6px', alignItems:'center' }} onClick={e=>e.stopPropagation()}>
                         <button className="dept-action-btn" onClick={() => handleDeptEdit(dept)}
                           style={{ width:'30px', height:'30px', borderRadius:'8px', background:'#EFF6FF', color:B, border:'1.5px solid #BFDBFE', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }} title="Modifier">
                           <IconEdit/>
                         </button>
-                        <button className="dept-action-btn" onClick={() => setDeleteModal({ type:'dept', item:dept })}
-                          style={{ width:'30px', height:'30px', borderRadius:'8px', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FECACA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }} title="Supprimer">
+                        <button className="dept-action-btn" onClick={() => setDeleteModal({ type:'dept', item:dept })} title="Archiver"
+                          style={{ width:'30px', height:'30px', borderRadius:'8px', background:'#FFF7ED', color:'#F59E0B', border:'1.5px solid #FED7AA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>
                           <IconTrash/>
                         </button>
                       </div>
@@ -370,7 +370,7 @@ const DepartmentsList = () => {
                                   <IconEdit/>
                                 </button>
                                 <button className="dept-action-btn" onClick={() => setDeleteModal({ type:'post', item:post, deptId:dept._id })}
-                                  style={{ width:'28px', height:'28px', borderRadius:'7px', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FECACA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', flexShrink:0 }}>
+                                  style={{ width:'28px', height:'28px', borderRadius:'7px', background:'#FFF7ED', color:'#F59E0B', border:'1.5px solid #FED7AA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', flexShrink:0 }}>
                                   <IconTrash/>
                                 </button>
                               </div>

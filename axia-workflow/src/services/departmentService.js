@@ -10,8 +10,9 @@ const departmentService = {
   createPost:           (deptId, data) => api.post('/departments/' + deptId + '/posts', data),
   updatePost:           (id, data)     => api.patch('/departments/posts/' + id, data),
   deletePost:           (id)           => api.delete('/departments/posts/' + id),
-
-  // ✅ CORRIGÉ — depuis /departments pas /tenant-users/posts
+  archiveDepartment: async (id) => api.patch(`/departments/${id}/archive`).then(r => r.data),
+  archivePost:       async (id) => api.patch(`/departments/posts/${id}/archive`).then(r => r.data),
+// ✅ CORRIGÉ — depuis /departments pas /tenant-users/posts
 getAllPosts: async () => {
   const res = await api.get('/departments');
   const departments = res.data?.data?.departments || [];
@@ -31,6 +32,7 @@ getAllPosts: async () => {
   
   return posts;
 },
+
 };
 
 export default departmentService;

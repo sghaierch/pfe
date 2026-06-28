@@ -8,8 +8,8 @@ const PlansList = () => {
   const [loading,     setLoading]     = useState(true);
   const [msg,         setMsg]         = useState('');
   const [search,      setSearch]      = useState('');
-  const [filterActive, setFilterActive] = useState('all'); // all | active | inactive
-  const [deleteModal, setDeleteModal] = useState(null);
+  const [filterActive, setFilterActive] = useState('all');
+  const [archiveModal, setArchiveModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
   const location = useLocation();
 
@@ -33,9 +33,15 @@ const PlansList = () => {
     catch (err) { console.error(err); }
   };
 
-  const handleDelete = async () => {
-    try { await planService.delete(deleteModal._id); showMsg('Plan supprimé'); setDeleteModal(null); fetchData(); }
-    catch (err) { console.error(err); }
+  const handleArchive = async () => {
+    try {
+      await planService.archive(archiveModal._id);
+      showMsg('Plan archivé');
+      setArchiveModal(null);
+      fetchData();
+    } catch (err) {
+      showMsg(err.response?.data?.message || 'Erreur lors de l\'archivage');
+    }
   };
 
   const caps = (plan) => [
@@ -195,9 +201,10 @@ const PlansList = () => {
                         style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#f0fdf4', border: '1px solid #86efac', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
                         <i className="ri-edit-line" style={{ fontSize: '14px' }}></i>
                       </Link>
-                      <button onClick={() => setDeleteModal(plan)} title="Supprimer"
-                        style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff5f5', border: '1px solid #fecaca', cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="ri-delete-bin-6-line" style={{ fontSize: '14px' }}></i>
+                      {/* ✅ Bouton archiver (orange) au lieu de supprimer (rouge) */}
+                      <button onClick={() => setArchiveModal(plan)} title="Archiver"
+                        style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fffbeb', border: '1px solid #fde68a', cursor: 'pointer', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="ri-archive-line" style={{ fontSize: '14px' }}></i>
                       </button>
                     </div>
                   </td>
@@ -223,7 +230,6 @@ const PlansList = () => {
               <button className="sa-modal-close" onClick={() => setDetailModal(null)}>✕</button>
             </div>
             <div className="sa-modal-body">
-              {/* Prix */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', padding: '16px', background: '#f8fafc', borderRadius: '10px' }}>
                 <i className="ri-money-dollar-circle-line" style={{ fontSize: '24px', color: detailModal.color || '#2563eb' }}></i>
                 <div>
@@ -232,8 +238,6 @@ const PlansList = () => {
                   <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#94a3b8' }}>{detailModal.description || '—'}</p>
                 </div>
               </div>
-
-              {/* Limites */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                 {[['ri-user-line','Utilisateurs', detailModal.maxUsers,'#2563eb','#dbeafe'],
                   ['ri-flow-chart','Workflows', detailModal.maxWorkflows,'#7c3aed','#ede9fe'],
@@ -245,8 +249,6 @@ const PlansList = () => {
                   </div>
                 ))}
               </div>
-
-              {/* Capacités */}
               {caps(detailModal).length > 0 && (
                 <div style={{ marginBottom: '16px' }}>
                   <p style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 8px' }}>Capacités incluses</p>
@@ -259,8 +261,6 @@ const PlansList = () => {
                   </div>
                 </div>
               )}
-
-              {/* Fonctionnalités */}
               {detailModal.features?.length > 0 && (
                 <div>
                   <p style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 8px' }}>Fonctionnalités</p>
@@ -285,22 +285,25 @@ const PlansList = () => {
         </div>
       )}
 
-      {/* Modal suppression */}
-      {deleteModal && (
-        <div className="sa-modal-overlay" onClick={e => e.target === e.currentTarget && setDeleteModal(null)}>
+      {/* ✅ Modal archivage */}
+      {archiveModal && (
+        <div className="sa-modal-overlay" onClick={e => e.target === e.currentTarget && setArchiveModal(null)}>
           <div className="sa-modal sa-modal-sm" onClick={e => e.stopPropagation()}>
             <div className="sa-modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-                <i className="ri-delete-bin-6-line" style={{ color: '#dc2626' }}></i>Supprimer le plan
+                <i className="ri-archive-line" style={{ color: '#d97706' }}></i>Archiver le plan
               </h3>
-              <button className="sa-modal-close" onClick={() => setDeleteModal(null)}>✕</button>
+              <button className="sa-modal-close" onClick={() => setArchiveModal(null)}>✕</button>
             </div>
             <p style={{ color: '#64748b', margin: '8px 0 20px', fontSize: '13px', lineHeight: 1.6 }}>
-              Supprimer <strong>{deleteModal.name}</strong> ? Les abonnements existants ne seront pas affectés.
+              Archiver <strong>{archiveModal.name}</strong> ? Le plan ne sera plus visible pour les nouvelles inscriptions. Les abonnements existants ne seront pas affectés.
             </p>
             <div className="sa-modal-footer">
-              <button className="sa-btn-secondary" onClick={() => setDeleteModal(null)}>Annuler</button>
-              <button className="sa-btn-danger" onClick={handleDelete}>Supprimer</button>
+              <button className="sa-btn-secondary" onClick={() => setArchiveModal(null)}>Annuler</button>
+              <button onClick={handleArchive}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#d97706', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '13px' }}>
+                <i className="ri-archive-line"></i> Archiver
+              </button>
             </div>
           </div>
         </div>

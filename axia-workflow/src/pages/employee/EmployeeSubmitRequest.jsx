@@ -188,7 +188,8 @@ const findEmployeeStepIndex = (steps = []) => {
 const EmployeeSubmitRequest = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const templateId = searchParams.get('template');
+  const workflowId = searchParams.get('workflowId') || searchParams.get('template');
+  const templateId = workflowId;
   const { user } = useAuth();
 
   const [workflow,    setWorkflow]    = useState(null);
@@ -197,6 +198,7 @@ const EmployeeSubmitRequest = () => {
   const [saving,      setSaving]      = useState(false);
   const [msg,         setMsg]         = useState('');
   const [success,     setSuccess]     = useState(false);
+  const [docNumber,   setDocNumber]   = useState('');
   const [,            setProjectId]   = useState('');
   const [dueDate]                     = useState('');
   const [fieldValues, setFieldValues] = useState({});
@@ -216,19 +218,9 @@ useEffect(() => {
 
   const load = async () => {
     try {
-      // === NOUVELLE LOGIQUE ===
-      const docTypeRes = await API.get(`/document-types/${templateId}`);
-      const docType = docTypeRes.data?.data?.documentType || docTypeRes.data?.documentType;
-      setDocType(docType);  // ← déjà déclaré dans ton state mais commenté
-      if (!docType) throw new Error('Type de document introuvable');
-
-      const workflowId = docType.defaultWorkflow;
-
-      if (!workflowId) throw new Error('Aucun workflow par défaut configuré pour ce type de document');
-
-      // Chargement du workflow réel
+      // ✅ Charge directement le workflow par son ID
       const [wfRes, projRes] = await Promise.all([
-        workflowService.getById(workflowId),           // ← On passe workflowId au lieu de templateId
+        workflowService.getById(workflowId),
         projectService?.getAll
           ? projectService.getAll()
           : Promise.resolve({ data: { projects: [] } }),
@@ -236,11 +228,15 @@ useEffect(() => {
 
       const wf = wfRes?.data?.workflow || wfRes?.workflow || null;
       if (!wf) throw new Error('Workflow introuvable');
-
       if (!wf.isTemplate) throw new Error("Ce workflow n'est pas un template disponible");
       if (wf.status !== 'active') throw new Error("Ce type de demande n'est plus disponible");
 
       setWorkflow(wf);
+
+      // ✅ docType populé depuis le workflow
+      if (wf.docType && typeof wf.docType === 'object') {
+        setDocType(wf.docType);
+      }
 
       const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
       setProjects(projs);
@@ -268,9 +264,6 @@ useEffect(() => {
 
       setFieldValues(init);
 
-      // Optionnel : garder le docType pour usage ultérieur
-       setDocType(docType);
-
     } catch (err) {
       console.error(err);
       setMsg('Erreur : ' + (err.response?.data?.message || err.message));
@@ -280,7 +273,7 @@ useEffect(() => {
   };
 
   load();
-}, [templateId, user]);
+}, [workflowId, user]);
 
   // ── Champs du formulaire employé ─────────────────────────────────────────
   const empStepIndex = useMemo(() => {
@@ -394,7 +387,7 @@ useEffect(() => {
           (f.label || '').toLowerCase().includes('dép') ||
           (f.label || '').toLowerCase().includes('depot')
         );
-        payload.docType      = docType.prefix;
+        payload.docType      = docType._id || docType.prefix;
         payload.documentData = {
           demandeur:   demandeurValue,
           depot:       depotField ? (fieldValues[depotField.id] || '') : '',
@@ -411,9 +404,11 @@ useEffect(() => {
         createRes?.data?._id           ||
         createRes?.workflow?._id;
       if (!createdWorkflowId) throw new Error('Workflow créé mais ID introuvable dans la réponse');
+      const generatedDocNumber = createRes?.data?.workflow?.docNumber || '';
+      if (generatedDocNumber) setDocNumber(generatedDocNumber);
 
       // ── Étape 2 : démarrer l'instance ─────────────────────────────────────
-      await workflowService.startInstance(workflowId);
+      await workflowService.startInstance(createdWorkflowId);
 
       // ── Étape 3 : compléter l'étape employé ──────────────────────────────
       const empFields          = stepsPayload[empStepIndex]?.form?.fields || [];
@@ -469,11 +464,11 @@ useEffect(() => {
           <i className="ri-check-line"></i>
         </div>
         <h2 style={{ margin: '0 0 8px', color: '#0F172A', fontSize: '20px', fontWeight: '700' }}>Demande soumise !</h2>
-  {docType && (
-    <div style={{ background: '#dbeafe', padding: '10px 20px', borderRadius: '10px', margin: '12px 0' }}>
-      <p style={{ margin: '0 0 2px', fontSize: '11px', color: '#475569' }}>Numéro de document</p>
-      <p style={{ margin: 0, fontSize: '20px', fontWeight: 800, fontFamily: 'monospace', color: '#2563eb' }}>
-        {docType.prefix}{new Date().getFullYear().toString().slice(-2)}-{String((docType.counter || 0) + 1).padStart(docType.digits || 3, '0')}
+  {docNumber && (
+    <div style={{ background: '#DBEAFE', padding: '14px 24px', borderRadius: '12px', margin: '16px 0', border: '1.5px solid #BFDBFE' }}>
+      <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#3B82F6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Numéro de demande</p>
+      <p style={{ margin: 0, fontSize: '26px', fontWeight: 900, fontFamily: 'monospace', color: '#1D4ED8', letterSpacing: '2px' }}>
+        {docNumber}
       </p>
     </div>
   )}

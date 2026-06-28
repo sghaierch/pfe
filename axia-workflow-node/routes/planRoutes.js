@@ -2,7 +2,7 @@ const express = require("express");
 const router  = express.Router();
 const {
   getAllPlans, getAllPlansAdmin, getPlanById,
-  createPlan, updatePlan, togglePlanStatus, deletePlan
+  createPlan, updatePlan, togglePlanStatus, archivePlan
 } = require("../controllers/planController");
 const { protectorMW, permitMW } = require("../controllers/authController");
 
@@ -15,6 +15,7 @@ router.use(permitMW("superadmin"));
 
 router.route("/").get(getAllPlansAdmin).post(createPlan);
 router.patch("/:id/toggle", togglePlanStatus);
-router.route("/:id").get(getPlanById).patch(updatePlan).delete(deletePlan);
+router.route("/:id").get(getPlanById).patch(updatePlan);
+router.patch("/:id/archive", archivePlan);
 
 module.exports = router;

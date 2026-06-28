@@ -20,7 +20,7 @@ const tenantService = {
 
   reactivateTenant: (id) =>
     API.patch(`/tenants/${id}/reactivate`, {}),
-
+  archive: async (id) => API.patch(`/tenants/${id}/archive`).then(r => r.data),
   deleteTenant: (id) =>
     API.delete(`/tenants/${id}`),
 

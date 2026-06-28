@@ -3,9 +3,9 @@ const router     = express.Router();
 const { protectorMW } = require('../controllers/authController'); // ✅ ton middleware
 const {
   getDepartments, createDepartment,
-  updateDepartment, deleteDepartment,
+  updateDepartment, archiveDepartment,
   getPostsByDepartment, createPost,
-  updatePost, deletePost,
+  updatePost, archivePost,
 } = require('../controllers/departmentController');
 
 router.use(protectorMW); // ✅ correct
@@ -14,12 +14,12 @@ router.use(protectorMW); // ✅ correct
 router.get('/',         getDepartments);
 router.post('/',        createDepartment);
 router.patch('/:id',    updateDepartment);
-router.delete('/:id',   deleteDepartment);
+router.patch('/:id/archive', archiveDepartment);
 
 // Postes par département
 router.get('/:deptId/posts',    getPostsByDepartment);
 router.post('/:deptId/posts',   createPost);
 router.patch('/posts/:id',      updatePost);
-router.delete('/posts/:id',     deletePost);
+router.patch('/posts/:id/archive', archivePost);
 
 module.exports = router;

@@ -335,11 +335,6 @@ const ProjectsList = () => {
                         <IconArchive/>
                       </button>
                     )}
-                    {/* Delete */}
-                    <button className="proj-action-btn" onClick={()=>openDelete(project)} title="Supprimer"
-                      style={{ width:'36px', height:'36px', borderRadius:'9px', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FECACA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <IconTrash/>
-                    </button>
                   </div>
                 </div>
               </div>

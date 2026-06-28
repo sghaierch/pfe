@@ -9,6 +9,8 @@ const userService = {
     const res = await API.get('/tenant-users');
     return res.data;
   },
+  archiveUser: async (id) => API.patch(`/tenant-users/${id}/archive`).then(r => r.data),
+  archivePost: async (id) => API.patch(`/tenant-users/posts/${id}/archive`).then(r => r.data),
 
   getById: async (id) => {
     const res = await API.get('/tenant-users/' + id);

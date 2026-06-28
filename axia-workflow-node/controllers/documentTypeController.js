@@ -146,12 +146,12 @@ exports.generateNumber = async (req, res) => {
   }
 };
 
-// ── DELETE (soft — désactive) ─────────────────────────────────────────────────
-exports.deleteDocumentType = async (req, res) => {
+// ── ARCHIVE (soft — désactive) ───────────────────────────────────────────────
+exports.archiveDocumentType = async (req, res) => {
   try {
     const DT = getModel(req);
-    await DT.findByIdAndUpdate(req.params.id, { isActive: false });
-    res.json({ status: 'success', message: 'Type de document désactivé' });
+    await DT.findByIdAndUpdate(req.params.id, { isActive: false, archivedAt: new Date() });
+    res.json({ status: 'success', message: 'Type de document archivé' });
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
   }

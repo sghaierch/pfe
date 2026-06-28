@@ -6,7 +6,7 @@ const projectService = {
     const res = await API.get('/projects');
     return res.data;
   },
-
+  archive: async (id) => API.patch(`/projects/${id}/archive`).then(r => r.data),
  getById: async (id) => {
   const res = await API.get(`/projects/${id}`);
   return res.data.data;  // ← .data.data

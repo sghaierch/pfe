@@ -208,8 +208,8 @@ const SubscriptionsList = () => {
                         </button>
                       </>}
                       <button onClick={() => setDeleteModal(sub)} title="Supprimer"
-                        style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff5f5', border: '1px solid #fecaca', cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="ri-delete-bin-6-line" style={{ fontSize: '14px' }}></i>
+                        style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff7ed', border: '1px solid #fed7aa', cursor: 'pointer', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<i className="ri-archive-line" style={{ fontSize: '14px' }}></i>
                       </button>
                     </div>
                   </td>
@@ -316,7 +316,7 @@ const SubscriptionsList = () => {
           <div className="sa-modal sa-modal-sm" onClick={e => e.stopPropagation()}>
             <div className="sa-modal-header">
               <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-                <i className="ri-delete-bin-6-line" style={{ color: '#dc2626' }}></i>Confirmer la suppression
+<i className="ri-archive-line" style={{ color: '#dc2626' }}></i>Confirmer la suppression
               </h2>
               <button className="sa-modal-close" onClick={() => setDeleteModal(null)}>✕</button>
             </div>

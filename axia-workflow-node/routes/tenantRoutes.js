@@ -8,7 +8,7 @@ const {
   rejectTenant,
   suspendTenant,
   reactivateTenant,
-  deleteTenant,
+  archiveTenant,
   changeTenantPlan,
   updateTenantLimits,
   resendCredentials,    // ✅ nouveau
@@ -31,6 +31,6 @@ router.patch("/:id/plan",         changeTenantPlan);
 router.patch("/:id/limits",       updateTenantLimits);
 router.post("/:id/resend-credentials", resendCredentials); // ✅ nouveau
 router.patch("/:id/renew",        renewSubscription);      // ✅ nouveau
-router.delete("/:id",             deleteTenant);
+router.patch("/:id/archive",      archiveTenant);
 
 module.exports = router;

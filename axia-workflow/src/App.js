@@ -45,6 +45,7 @@ import EmployeeRequestList  from './pages/employee/EmployeeRequestList';
 import EmployeeSubmitRequest from './pages/employee/EmployeeSubmitRequest';
 import Workfloweditinfopage from './pages/company/workflows/Workfloweditinfopage';
 import EmployeeRequestDetail from './pages/employee/EmployeeRequestDetail';
+import TaskValidationPage   from './pages/employee/TaskValidationPage';
 import DocumentTypesPage from './pages/company/document-types/DocumentTypesPage';
 function App() {
   return (
@@ -112,6 +113,9 @@ function App() {
           } />
           <Route path="/dashboard/employee/requests/:id" element={
             <ProtectedRoute><EmployeeRequestDetail /></ProtectedRoute>
+          } />
+          <Route path="/dashboard/employee/tasks/:id" element={
+            <ProtectedRoute><TaskValidationPage /></ProtectedRoute>
           } />
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

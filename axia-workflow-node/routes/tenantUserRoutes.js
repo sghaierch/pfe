@@ -3,8 +3,8 @@ const router  = express.Router();
 const { protectorMW } = require('../controllers/authController');
 const {
   getUsers, getRoles,
-  createUser, updateUser, deleteUser, getUser,
-  getPosts, createPost, updatePost, deletePost,
+  createUser, updateUser, archiveUser, getUser,
+  getPosts, createPost, updatePost, archivePost,
   forgetPassword,
   getMe, updateMe, changePassword,
 } = require('../controllers/tenantUserController');
@@ -24,12 +24,12 @@ router.get('/',      getUsers);
 router.get('/:id',   getUser);
 router.post('/',     createUser);
 router.patch('/:id', updateUser);
-router.delete('/:id',deleteUser);
+router.patch('/:id/archive', archiveUser);
 
 // Postes
 router.get('/posts/list',    getPosts);
 router.post('/posts',        createPost);
 router.patch('/posts/:id',   updatePost);
-router.delete('/posts/:id',  deletePost);
+router.patch('/posts/:id/archive', archivePost);
 
 module.exports = router;

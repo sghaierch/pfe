@@ -3,7 +3,7 @@ const router  = express.Router();
 const { protectorMW, permitMW } = require('../controllers/authController');
 const {
   getTemplates, getTemplate,
-  createTemplate, updateTemplate, deleteTemplate,
+  createTemplate, updateTemplate, archiveTemplate,
   useTemplate,
 } = require('../controllers/templateController');
 
@@ -19,6 +19,6 @@ router.post('/:id/use', useTemplate);
 // Écriture : company_admin uniquement
 router.post('/',     permitMW('company_admin'), createTemplate);
 router.patch('/:id', permitMW('company_admin'), updateTemplate);
-router.delete('/:id',permitMW('company_admin'), deleteTemplate);
+router.patch('/:id/archive', permitMW('company_admin'), archiveTemplate);
 
 module.exports = router;

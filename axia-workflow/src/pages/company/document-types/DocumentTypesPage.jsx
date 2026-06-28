@@ -4,7 +4,7 @@ import API from '../../../services/api';
 // ── Icons ──────────────────────────────────────────────────────────────────
 const IconFile      = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
 const IconEdit      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-const IconTrash     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
+const IconArchive   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="10" y2="17"/><line x1="14" y1="12" x2="14" y2="17"/></svg>;
 const IconPlus      = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconSave      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 const IconX         = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
@@ -105,10 +105,12 @@ const DocumentTypesPage = () => {
     try {
       const res = await API.get('/workflows');
       const all = res.data?.data?.workflows || [];
-      // Filtrer les workflows qui appartiennent à ce type de document
+      // ✅ Seulement les TEMPLATES (isTemplate:true), pas les instances/demandes
       const filtered = all.filter(w =>
-        w.docType === type._id ||
-        (w.docType && (w.docType._id === type._id || String(w.docType) === String(type._id)))
+        w.isTemplate === true && (
+          w.docType === type._id ||
+          (w.docType && (w.docType._id === type._id || String(w.docType) === String(type._id)))
+        )
       );
       setWfOfType(filtered);
     } catch { setWfOfType([]); }
@@ -150,11 +152,22 @@ const DocumentTypesPage = () => {
     setForm({ name:type.name, prefix:type.prefix, digits:type.digits, description:type.description||'' });
   };
 
-  const handleDelete = async () => {
+// Toggle rapide du statut (clic direct sur le badge, sans confirmation)
+  const handleToggleStatus = async (type) => {
+    try {
+      await API.patch('/document-types/' + type._id, { isActive: !type.isActive });
+      setTypes(prev => prev.map(t => t._id === type._id ? { ...t, isActive: !t.isActive } : t));
+    } catch (err) {
+      showMsg('ERREUR ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // Archivage formel (icône + confirmation) — distinct du simple toggle
+  const handleArchive = async () => {
     if (!deleteModal) return;
     try {
-      await API.delete('/document-types/' + deleteModal._id);
-      showMsg('SUCCESS Type désactivé');
+      await API.patch('/document-types/' + deleteModal._id + '/archive');
+      showMsg('SUCCESS Type archivé');
       setDeleteModal(null); fetchTypes();
     } catch (err) {
       showMsg('ERREUR ' + (err.response?.data?.message || err.message));
@@ -274,8 +287,7 @@ const DocumentTypesPage = () => {
                             <p style={{ margin:'0 0 3px', fontWeight:700, fontSize:'14px', color:'#0F172A', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{wf.name}</p>
                             <div style={{ display:'flex', gap:'6px', alignItems:'center', flexWrap:'wrap' }}>
                               <span style={{ fontSize:'11px', color:'#94A3B8' }}>{wf.steps?.length || 0} étape(s)</span>
-                              {wf.isTemplate && <span style={{ background:'#F5F3FF', color:'#7C3AED', padding:'1px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:700, border:'1px solid #EDE9FE' }}>Template</span>}
-                              {wf.docNumber && <span style={{ fontFamily:'monospace', background:'#F0FDF4', color:'#16A34A', padding:'1px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:700, border:'1px solid #BBF7D0' }}>{wf.docNumber}</span>}
+                              {wf.isTemplate && <span style={{ background:'#F5F3FF', color:'#7C3AED', padding:'1px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:700, border:'1px solid #EDE9FE' }}>Workflow</span>}
                             </div>
                           </div>
                           <span style={{ display:'inline-flex', alignItems:'center', gap:'4px', padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:700, background:sc.bg, color:sc.color, border:`1px solid ${sc.border}`, flexShrink:0 }}>
@@ -311,14 +323,14 @@ const DocumentTypesPage = () => {
               <div style={{ width:'52px', height:'52px', borderRadius:'13px', background:'#FEF9EC', border:'1.5px solid #FDE68A', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', color:'#D97706' }}>
                 <IconWarn/>
               </div>
-              <h3 style={{ margin:'0 0 8px', fontSize:'17px', fontWeight:800, color:'#0F172A' }}>Désactiver ce type ?</h3>
+              <h3 style={{ margin:'0 0 8px', fontSize:'17px', fontWeight:800, color:'#0F172A' }}>Archiver ce type ?</h3>
               <p style={{ margin:'0 0 24px', color:'#64748B', fontSize:'14px', lineHeight:1.6 }}>
-                <strong style={{color:'#0F172A'}}>{deleteModal.name}</strong> sera désactivé.
+                <strong style={{color:'#0F172A'}}>{deleteModal.name}</strong> sera archivé.
                 Les documents existants ne seront pas supprimés.
               </p>
               <div style={{ display:'flex', gap:'10px' }}>
                 <button onClick={()=>setDeleteModal(null)} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'1.5px solid #E2E8F0', background:'#fff', fontWeight:600, cursor:'pointer', fontSize:'14px', color:'#475569', fontFamily:"'Inter',sans-serif" }}>Annuler</button>
-                <button onClick={handleDelete} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'none', background:'#DC2626', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:'14px', fontFamily:"'Inter',sans-serif" }}>Désactiver</button>
+                <button onClick={handleArchive} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'none', background:'#F59E0B', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:'14px', fontFamily:"'Inter',sans-serif" }}>Archiver</button>
               </div>
             </div>
           </div>
@@ -339,8 +351,7 @@ const DocumentTypesPage = () => {
           </div>
         )}
 
-        <div style={{ display:'grid', gridTemplateColumns:'320px 1fr', gap:'20px', alignItems:'start' }}>
-
+<div style={{ display:'grid', gridTemplateColumns:'320px 1fr', gap:'20px', alignItems:'start' }}>
           {/* ── Left: Form card ── */}
           <div style={{ background:'#fff', borderRadius:'16px', border:'1.5px solid #E2E8F0', padding:'24px', boxShadow:'0 2px 12px rgba(0,0,0,0.04)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'22px', paddingBottom:'14px', borderBottom:'1.5px solid #F1F5F9' }}>
@@ -429,7 +440,7 @@ const DocumentTypesPage = () => {
             </div>
 
             {/* ✅ Table header — sans colonne Workflow */}
-            <div style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 0.7fr auto', gap:'12px', padding:'11px 20px', background:'#F8FAFC', borderBottom:'1.5px solid #E2E8F0' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 0.7fr 112px', gap:'12px', padding:'11px 20px', background:'#F8FAFC', borderBottom:'1.5px solid #E2E8F0' }}>
               {['Nom', 'Préfixe', 'Exemple', 'Statut', 'Actions'].map(h => (
                 <div key={h} style={{ fontSize:'11px', fontWeight:700, color:'#64748B', textTransform:'uppercase', letterSpacing:'0.07em' }}>{h}</div>
               ))}
@@ -452,8 +463,8 @@ const DocumentTypesPage = () => {
             ) : filtered.map(type => {
               const pc = prefixColor(type.prefix);
               return (
-                <div key={type._id} className="dt-row"
-                  style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 0.7fr auto', gap:'12px', alignItems:'center', padding:'13px 20px', borderBottom:'1px solid #F1F5F9', background:'#fff', transition:'background 0.15s' }}>
+               <div key={type._id} className="dt-row"
+                  style={{ display:'grid', gridTemplateColumns:'2fr 0.8fr 1fr 0.7fr 112px', gap:'12px', alignItems:'center', padding:'13px 20px', borderBottom:'1px solid #F1F5F9', background:'#fff', transition:'background 0.15s' }}>
 
                   {/* Name */}
                   <div style={{ display:'flex', alignItems:'center', gap:'10px', minWidth:0 }}>
@@ -479,8 +490,10 @@ const DocumentTypesPage = () => {
                   </div>
 
                   {/* Status */}
+{/* Status — cliquable, bascule directement sans confirmation */}
                   <div>
-                    <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:700, background: type.isActive ? '#F0FDF4' : '#FEF2F2', color: type.isActive ? '#16A34A' : '#DC2626', border: type.isActive ? '1px solid #BBF7D0' : '1px solid #FECACA' }}>
+                    <span onClick={() => handleToggleStatus(type)} title="Cliquer pour changer le statut"
+                      style={{ display:'inline-flex', alignItems:'center', gap:'5px', padding:'4px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:700, cursor:'pointer', userSelect:'none', background: type.isActive ? '#F0FDF4' : '#FEF2F2', color: type.isActive ? '#16A34A' : '#DC2626', border: type.isActive ? '1px solid #BBF7D0' : '1px solid #FECACA' }}>
                       <span style={{ width:'5px', height:'5px', borderRadius:'50%', background: type.isActive ? '#16A34A' : '#DC2626', display:'inline-block' }}/>
                       {type.isActive ? 'Actif' : 'Inactif'}
                     </span>
@@ -497,8 +510,8 @@ const DocumentTypesPage = () => {
                       <IconEdit/>
                     </button>
                     <button className="dt-action-btn" onClick={() => setDeleteModal(type)}
-                      style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FECACA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }} title="Désactiver">
-                      <IconTrash/>
+                      style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#FFF7ED', color:'#F59E0B', border:'1.5px solid #FED7AA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }} title="Archiver">
+                      <IconArchive/>
                     </button>
                   </div>
                 </div>

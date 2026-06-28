@@ -148,7 +148,15 @@ exports.getAuditLog = async (req, res) => {
     });
 
     entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-    res.json({ status: 'success', data: { entries, total: entries.length } });
+
+    // ✅ Stats globales calculées sur TOUTES les entrées (avant pagination éventuelle)
+    const stats = {
+      validated: entries.filter(e => e.action === 'step_completed').length,
+      rejected:  entries.filter(e => e.action === 'step_rejected').length,
+      started:   entries.filter(e => e.action === 'workflow_started').length,
+    };
+
+    res.json({ status: 'success', data: { entries, total: entries.length, stats } });
 
   } catch (err) {
     res.status(500).json({ status: 'error', message: err.message });
@@ -160,7 +168,8 @@ exports.getWorkflow = async (req, res) => {
   try {
     const Workflow = getWorkflowModel(req);
     const workflow = await Workflow.findById(req.params.id)
-      .populate('steps.assignedTo', 'firstName lastName email');
+      .populate('steps.assignedTo', 'firstName lastName email')
+      .populate('docType', 'name prefix digits counter');
 
     if (!workflow) return res.status(404).json({ status: 'fail', message: 'Workflow non trouvé' });
 
@@ -238,9 +247,13 @@ exports.createWorkflow = async (req, res) => {
     });
 
     // ── Génération du docNumber ───────────────────────────────────────────
-    const docTypeId = req.body.docTypeId || req.body.docType;
+    // ✅ FIX : req.body.docType contient l'_id du DocumentType (ex: ObjectId "DC...")
+    // req.body.docTypeId contient l'_id du workflow template — NE PAS l'utiliser ici
+    // ✅ REGLE : counter uniquement sur les instances, jamais sur un template
+    const docTypeId = req.body.docType || req.body.docTypeId;
+    const isInstance = !req.body.isTemplate;
 
-    if (docTypeId) {
+    if (docTypeId && isInstance) {
       try {
         const dtSchema = require('../models/documentTypeModel').schema;
         const DT = safeModel(req.tenantConnection, 'DocumentType', dtSchema);

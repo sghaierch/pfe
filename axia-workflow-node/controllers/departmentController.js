@@ -70,21 +70,27 @@ exports.updateDepartment = async (req, res) => {
     res.status(500).json({ status: 'fail', message: err.message });
   }
 };
-// ── DELETE département ────────────────────────────────────────────
-exports.deleteDepartment = async (req, res) => {
+
+// ── ARCHIVE département ───────────────────────────────────────────
+exports.archiveDepartment = async (req, res) => {
   try {
     const Department = getDeptModel(req);
-    const Post       = getPostModel(req); // ← récupère le bon modèle sur la bonne connexion tenant
+    const Post       = getPostModel(req);
 
-    // 1. Supprime tous les postes liés
-    await Post.deleteMany({ department: req.params.id });
+    // Désactiver tous les postes du département
+    await Post.updateMany(
+      { department: req.params.id },
+      { isActive: false, archivedAt: new Date() }
+    );
 
-    // 2. Supprime le département
-    await Department.findByIdAndDelete(req.params.id);
+    // Archiver le département
+    await Department.findByIdAndUpdate(req.params.id, {
+      isActive: false,
+      archivedAt: new Date(),
+    });
 
-    res.status(200).json({ status: 'success', message: 'Département et ses postes supprimés' });
+    res.status(200).json({ status: 'success', message: 'Département et ses postes archivés' });
   } catch (err) {
-    console.error('❌ deleteDepartment:', err.message);
     res.status(500).json({ status: 'fail', message: err.message });
   }
 };
@@ -136,12 +142,35 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// ── DELETE poste ──────────────────────────────────────────────────
-exports.deletePost = async (req, res) => {
+// ── ARCHIVE poste ─────────────────────────────────────────────────
+exports.archivePost = async (req, res) => {
   try {
     const Post = getPostModel(req);
-    await Post.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: 'success', message: 'Poste supprimé' });
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ status: 'fail', message: 'Poste non trouvé' });
+
+    // Vérifier si des utilisateurs actifs ont ce poste
+    const userSchema = require('../models/userModel').schema;
+    const conn = req.tenantConnection;
+    const User = conn.models['User'] || conn.model('User', userSchema);
+    const usersWithPost = await User.countDocuments({
+      jobTitle: { $regex: new RegExp('^' + post.name.trim() + '$', 'i') },
+      isActive: { $ne: false },
+    });
+
+    if (usersWithPost > 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Impossible d'archiver — ${usersWithPost} utilisateur(s) ont ce poste. Réaffectez-les d'abord.`,
+      });
+    }
+
+    await Post.findByIdAndUpdate(req.params.id, {
+      isActive: false,
+      archivedAt: new Date(),
+    });
+
+    res.status(200).json({ status: 'success', message: 'Poste archivé' });
   } catch (err) {
     res.status(500).json({ status: 'fail', message: err.message });
   }

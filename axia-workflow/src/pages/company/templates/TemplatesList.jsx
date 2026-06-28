@@ -59,7 +59,7 @@ const FIELD_TYPES = [
 // ── Icons ──────────────────────────────────────────────────────────────────
 const IconPlus     = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconEdit     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-const IconTrash    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
+const IconTrash = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="10" y2="17"/><line x1="14" y1="12" x2="14" y2="17"/></svg>;
 const IconSearch   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
 const IconX        = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 const IconCheck    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
@@ -281,7 +281,7 @@ const SortableFieldRow = ({
 
           {/* Delete */}
           <button onClick={() => removeStepField(si, fi)}
-            style={{ width:'28px', height:'28px', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FECACA', borderRadius:'7px', cursor:'pointer', fontWeight:800, fontSize:'12px', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            style={{ width:'28px', height:'28px', background:'#FFF7ED', color:'#F59E0B', border:'1.5px solid #FED7AA', borderRadius:'7px', cursor:'pointer', fontWeight:800, fontSize:'12px', display:'flex', alignItems:'center', justifyContent:'center' }}>
             ✕
           </button>
         </div>
@@ -444,10 +444,9 @@ const TemplatesList = () => {
     } catch (err) { showMsg('ERREUR ' + (err.response?.data?.message || err.message)); }
     finally { setSaving(false); }
   };
-
-  const handleDelete = async () => {
+const handleArchive = async () => {
     if (!deleteModal) return;
-    try { await templateService.delete(deleteModal._id); showMsg('SUCCESS Template supprimé'); setDeleteModal(null); fetchTemplates(); }
+    try { await templateService.archive(deleteModal._id); showMsg('SUCCESS Template archivé'); setDeleteModal(null); fetchTemplates(); }
     catch (err) { showMsg('ERREUR ' + (err.response?.data?.message || err.message)); }
   };
 
@@ -832,8 +831,7 @@ const TemplatesList = () => {
                                 <IconEdit/>
                               </button>
                               <button onClick={() => setDeleteModal(tmpl)}
-                                style={{ width:'30px', height:'30px', borderRadius:'8px', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FECACA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                <IconTrash/>
+                              style={{ width:'30px', height:'30px', borderRadius:'8px', background:'#FFF7ED', color:'#F59E0B', border:'1.5px solid #FED7AA', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>                                <IconTrash/>
                               </button>
                             </div>
                           </div>
@@ -878,16 +876,16 @@ const TemplatesList = () => {
         )}
 
         {/* ── Delete Modal ── */}
-        {deleteModal && (
+      {deleteModal && (
           <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, backdropFilter:'blur(4px)' }}>
             <div style={{ background:'#fff', borderRadius:'20px', padding:'32px', maxWidth:'420px', width:'90%', boxShadow:'0 24px 60px rgba(0,0,0,0.2)', textAlign:'center', fontFamily:"'Inter',sans-serif" }}>
-              <div style={{ width:'52px', height:'52px', borderRadius:'13px', background:'#FEF2F2', border:'1.5px solid #FECACA', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', color:'#DC2626' }}><IconTrash/></div>
-              <h3 style={{ margin:'0 0 8px', fontSize:'17px', fontWeight:800, color:'#0F172A' }}>Supprimer ce template ?</h3>
+              <div style={{ width:'52px', height:'52px', borderRadius:'13px', background:'#FFF7ED', border:'1.5px solid #FED7AA', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 18px', color:'#F59E0B' }}><IconTrash/></div>
+              <h3 style={{ margin:'0 0 8px', fontSize:'17px', fontWeight:800, color:'#0F172A' }}>Archiver ce template ?</h3>
               <p style={{ color:'#64748B', margin:'0 0 24px', lineHeight:1.6, fontSize:'14px' }}>
-                Le template <strong style={{color:'#0F172A'}}>"{deleteModal.name}"</strong> sera définitivement supprimé.
+                Le template <strong style={{color:'#0F172A'}}>"{deleteModal.name}"</strong> sera archivé. Il n'apparaîtra plus dans la liste mais pourra être restauré.
               </p>
               <div style={{ display:'flex', gap:'12px' }}>
-                <button onClick={handleDelete} style={{ flex:1, padding:'11px', borderRadius:'9px', background:'#DC2626', color:'#fff', border:'none', fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>Supprimer</button>
+                <button onClick={handleArchive} style={{ flex:1, padding:'11px', borderRadius:'9px', background:'#F59E0B', color:'#fff', border:'none', fontWeight:700, cursor:'pointer', fontFamily:"'Inter',sans-serif" }}>Archiver</button>
                 <button onClick={() => setDeleteModal(null)} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'1.5px solid #E2E8F0', background:'#fff', cursor:'pointer', fontWeight:600, color:'#475569', fontFamily:"'Inter',sans-serif" }}>Annuler</button>
               </div>
             </div>

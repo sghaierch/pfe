@@ -6,6 +6,12 @@ const safeModel = (conn, name, schema) => {
 const getTemplateModel = (req) => {
   const conn = req.tenantConnection;
   if (!conn) throw new Error('Connexion tenant manquante');
+
+  // ✅ FIX : enregistrer DocumentType sur la connexion tenant AVANT tout populate
+  // Sans ça, mongoose lève "Schema hasn't been registered for model DocumentType"
+  const dtSchema = require('../models/documentTypeModel').schema;
+  safeModel(conn, 'DocumentType', dtSchema);
+
   const schema = require('../models/workflowTemplateModel').schema;
   return safeModel(conn, 'WorkflowTemplate', schema);
 };
@@ -129,12 +135,32 @@ exports.updateTemplate = async (req, res) => {
   }
 };
 
-// ── DELETE template ───────────────────────────────────────────────────────────
-exports.deleteTemplate = async (req, res) => {
+exports.archiveTemplate = async (req, res) => {
   try {
     const Template = getTemplateModel(req);
-    await Template.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: 'success', message: 'Template supprimé' });
+    const conn     = req.tenantConnection;
+
+    // Vérifier si des workflows actifs utilisent ce template
+    const workflowSchema = require('../models/workflowModel').schema;
+    const Workflow = safeModel(conn, 'Workflow', workflowSchema);
+    const activeWorkflows = await Workflow.countDocuments({ 
+      templateRef: req.params.id, 
+      status: 'active' 
+    });
+
+    if (activeWorkflows > 0) {
+      return res.status(400).json({ 
+        status: 'fail', 
+        message: `Impossible d'archiver — ${activeWorkflows} workflow(s) actif(s) basé(s) sur ce template` 
+      });
+    }
+
+    await Template.findByIdAndUpdate(req.params.id, { 
+      isActive: false, 
+      archivedAt: new Date() 
+    });
+
+    res.status(200).json({ status: 'success', message: 'Template archivé' });
   } catch (err) {
     res.status(500).json({ status: 'fail', message: err.message });
   }

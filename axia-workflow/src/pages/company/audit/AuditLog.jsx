@@ -5,12 +5,16 @@ import workflowService from '../../../services/workflowService';
 const B = '#2563EB';
 const font = "'Inter',-apple-system,sans-serif";
 
+// ✅ FIX 1 : toutes les actions possibles sont couvertes
 const ACTION_CFG = {
-  workflow_started:          { label:'Workflow démarré',   color:B,        bg:'#EFF6FF',  dot:'#3B82F6' },
-  step_completed:            { label:'Étape validée',      color:'#16A34A', bg:'#F0FDF4',  dot:'#22C55E' },
-  step_rejected:             { label:'Étape rejetée',      color:'#DC2626', bg:'#FEF2F2',  dot:'#EF4444' },
-  workflow_completed:        { label:'Workflow terminé',   color:'#16A34A', bg:'#F0FDF4',  dot:'#22C55E' },
-  step_skipped_by_condition: { label:'Étape ignorée',      color:'#D97706', bg:'#FFFBEB',  dot:'#FBBF24' },
+  workflow_started:          { label:'Workflow démarré',    color:B,        bg:'#EFF6FF', dot:'#3B82F6' },
+  step_completed:            { label:'Étape validée',       color:'#16A34A', bg:'#F0FDF4', dot:'#22C55E' },
+  step_rejected:             { label:'Étape rejetée',       color:'#DC2626', bg:'#FEF2F2', dot:'#EF4444' },
+  workflow_completed:        { label:'Workflow terminé',    color:'#16A34A', bg:'#F0FDF4', dot:'#22C55E' },
+  step_skipped_by_condition: { label:'Étape ignorée',       color:'#D97706', bg:'#FFFBEB', dot:'#FBBF24' },
+  workflow_deactivated:      { label:'Workflow désactivé',  color:'#7C3AED', bg:'#F5F3FF', dot:'#8B5CF6' },
+  workflow_archived:         { label:'Workflow archivé',    color:'#64748B', bg:'#F8FAFC', dot:'#94A3B8' },
+  step_skipped:              { label:'Étape ignorée',       color:'#D97706', bg:'#FFFBEB', dot:'#FBBF24' },
 };
 
 const IArrowL  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
@@ -24,13 +28,13 @@ const IDoc     = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="non
 const IEmpty   = () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>;
 const IArrowR  = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 
-const fmtDate = d => new Date(d).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-
 const AuditLog = () => {
   const navigate = useNavigate();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total,   setTotal]   = useState(0);
+  // ✅ FIX 2 : stats viennent du backend (total réel), pas filtrées côté client
+  const [stats,   setStats]   = useState({ validated:0, rejected:0, started:0 });
   const [filters, setFilters] = useState({ action:'', user:'', from:'', to:'' });
   const [applied, setApplied] = useState({});
 
@@ -38,8 +42,20 @@ const AuditLog = () => {
     setLoading(true);
     try {
       const res = await workflowService.getAuditLog(f);
-      setEntries(res.data?.entries || []);
-      setTotal(res.data?.total || 0);
+      const data = res.data;
+      setEntries(data?.entries || []);
+      setTotal(data?.total || 0);
+      // ✅ utilise les stats du backend si disponibles, sinon calcule sur les entrées reçues
+      if (data?.stats) {
+        setStats(data.stats);
+      } else {
+        const all = data?.entries || [];
+        setStats({
+          validated: all.filter(e => e.action === 'step_completed').length,
+          rejected:  all.filter(e => e.action === 'step_rejected').length,
+          started:   all.filter(e => e.action === 'workflow_started').length,
+        });
+      }
     } catch {} finally { setLoading(false); }
   }, []);
 
@@ -57,14 +73,6 @@ const AuditLog = () => {
 
   const actionKeys = Object.keys(ACTION_CFG);
   const hasFilters = Object.values(applied).some(v => v);
-
-  // Stats from entries
-  const stats = {
-    total: total,
-    validated: entries.filter(e => e.action === 'step_completed').length,
-    rejected:  entries.filter(e => e.action === 'step_rejected').length,
-    started:   entries.filter(e => e.action === 'workflow_started').length,
-  };
 
   return (
     <>
@@ -100,10 +108,10 @@ const AuditLog = () => {
         {/* ── Stats cards ── */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'12px', marginBottom:'20px' }}>
           {[
-            { label:'Total entrées',   value:total,           color:B,        bg:'#EFF6FF',  border:'#BFDBFE' },
-            { label:'Étapes validées', value:stats.validated, color:'#16A34A', bg:'#F0FDF4',  border:'#BBF7D0' },
-            { label:'Étapes rejetées', value:stats.rejected,  color:'#DC2626', bg:'#FEF2F2',  border:'#FECACA' },
-            { label:'Workflows lancés',value:stats.started,   color:'#D97706', bg:'#FFFBEB',  border:'#FDE68A' },
+            { label:'Total entrées',    value:total,           color:B,         bg:'#EFF6FF', border:'#BFDBFE' },
+            { label:'Étapes validées',  value:stats.validated, color:'#16A34A', bg:'#F0FDF4', border:'#BBF7D0' },
+            { label:'Étapes rejetées',  value:stats.rejected,  color:'#DC2626', bg:'#FEF2F2', border:'#FECACA' },
+            { label:'Workflows lancés', value:stats.started,   color:'#D97706', bg:'#FFFBEB', border:'#FDE68A' },
           ].map(s => (
             <div key={s.label} style={{ background:'#fff', borderRadius:'14px', border:`1.5px solid ${s.border}`, padding:'16px 18px', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize:'26px', fontWeight:900, color:s.color, lineHeight:1, marginBottom:'4px' }}>{s.value}</div>
@@ -158,15 +166,13 @@ const AuditLog = () => {
 
         {/* ── Table ── */}
         <div style={{ background:'#fff', borderRadius:'14px', border:'1.5px solid #E2E8F0', overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
-
-          {/* Table header */}
-          <div style={{ display:'grid', gridTemplateColumns:'170px 1fr 150px 160px 1fr', background:'#F8FAFC', borderBottom:'1.5px solid #E2E8F0' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'170px 1fr 160px 160px 1fr', background:'#F8FAFC', borderBottom:'1.5px solid #E2E8F0' }}>
             {[
-              { label:'Date & heure',    icon:<IClock/> },
-              { label:'Workflow / Étape',icon:<IDoc/> },
-              { label:'Action',          icon:null },
-              { label:'Utilisateur',     icon:<IUser/> },
-              { label:'Commentaire',     icon:null },
+              { label:'Date & heure',     icon:<IClock/> },
+              { label:'Workflow / Étape', icon:<IDoc/> },
+              { label:'Action',           icon:null },
+              { label:'Utilisateur',      icon:<IUser/> },
+              { label:'Commentaire',      icon:null },
             ].map((h,i) => (
               <div key={i} style={{ padding:'12px 16px', fontSize:'11px', fontWeight:800, color:'#64748B', textTransform:'uppercase', letterSpacing:'0.07em', display:'flex', alignItems:'center', gap:'5px' }}>
                 {h.icon&&<span style={{color:'#94A3B8'}}>{h.icon}</span>}{h.label}
@@ -174,7 +180,6 @@ const AuditLog = () => {
             ))}
           </div>
 
-          {/* Table body */}
           {loading ? (
             <div style={{ padding:'64px', textAlign:'center', display:'flex', alignItems:'center', justifyContent:'center', gap:'12px', color:'#64748B', fontSize:'15px' }}>
               <ILoader/> Chargement…
@@ -187,10 +192,14 @@ const AuditLog = () => {
             </div>
           ) : (
             entries.map((entry, i) => {
-              const cfg = ACTION_CFG[entry.action] || { label:entry.action, color:'#64748B', bg:'#F8FAFC', dot:'#94A3B8' };
+              // ✅ FIX 1 : fallback propre pour toute action inconnue
+              const cfg = ACTION_CFG[entry.action] || {
+                label:  entry.action?.replace(/_/g, ' ') || '—',
+                color: '#64748B', bg:'#F8FAFC', dot:'#94A3B8'
+              };
               return (
                 <div key={i} className="al-row"
-                  style={{ display:'grid', gridTemplateColumns:'170px 1fr 150px 160px 1fr', borderBottom:i<entries.length-1?'1px solid #F8FAFC':'none', background:i%2===0?'#fff':'#FAFAFA', transition:'background .12s' }}>
+                  style={{ display:'grid', gridTemplateColumns:'170px 1fr 160px 160px 1fr', borderBottom:i<entries.length-1?'1px solid #F1F5F9':'none', background:i%2===0?'#fff':'#FAFAFA', transition:'background .12s' }}>
 
                   {/* Date */}
                   <div style={{ padding:'14px 16px', display:'flex', alignItems:'center' }}>
@@ -212,7 +221,7 @@ const AuditLog = () => {
                       onMouseLeave={e=>e.currentTarget.style.textDecoration='none'}>
                       <IDoc/>{entry.workflowName} <IArrowR/>
                     </span>
-                    {entry.stepName&&<span style={{ fontSize:'11px', color:'#94A3B8', marginTop:'3px' }}>Étape : {entry.stepName}</span>}
+                    {entry.stepName && <span style={{ fontSize:'11px', color:'#94A3B8', marginTop:'3px' }}>Étape : {entry.stepName}</span>}
                   </div>
 
                   {/* Action badge */}

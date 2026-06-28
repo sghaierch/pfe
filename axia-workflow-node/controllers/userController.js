@@ -56,13 +56,41 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-exports.deleteUser = async (req, res) => {
+exports.archiveUser = async (req, res) => {
   try {
-    const User = require("../models/userModel");
-    await User.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: "success", message: "Utilisateur supprimé !" });
+    const User = require('../models/userModel');
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ status: 'fail', message: 'Utilisateur non trouvé' });
+
+    // Vérifier tâches en cours via tenantConnection si disponible
+    if (req.tenantConnection) {
+      const workflowSchema = require('../models/workflowModel').schema;
+      const Workflow = req.tenantConnection.models['Workflow'] || 
+                       req.tenantConnection.model('Workflow', workflowSchema);
+      const activeTasks = await Workflow.countDocuments({
+        'steps': { 
+          $elemMatch: { 
+            assignedTo: req.params.id, 
+            status: 'in_progress' 
+          } 
+        }
+      });
+      if (activeTasks > 0) {
+        return res.status(400).json({ 
+          status: 'fail', 
+          message: `Impossible d'archiver — l'utilisateur a ${activeTasks} tâche(s) en cours` 
+        });
+      }
+    }
+
+    await User.findByIdAndUpdate(req.params.id, { 
+      isActive: false, 
+      archivedAt: new Date() 
+    });
+
+    res.status(200).json({ status: 'success', message: 'Utilisateur archivé' });
   } catch (err) {
-    res.status(400).json({ status: "fail", message: err.message });
+    res.status(400).json({ status: 'fail', message: err.message });
   }
 };
 

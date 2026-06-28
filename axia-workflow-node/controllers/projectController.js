@@ -48,7 +48,7 @@ exports.getProject = async (req, res) => {
   .sort({ createdAt: -1 });
     // Récupérer les instances (demandes soumises par les employés)
   const instances = await Workflow.find({ project: req.params.id, isTemplate: { $ne: true } })
-  .select("name status currentStep steps createdAt dueDate isTemplate templateRef allowedPosts allowedRoles visibility")
+  .select("name status currentStep steps createdAt dueDate isTemplate templateRef allowedPosts allowedRoles visibility docNumber docType")
   .sort({ createdAt: -1 });
     res.status(200).json({
       status: "success",
@@ -106,7 +106,7 @@ exports.updateProject = async (req, res) => {
 };
 
 // ── DELETE (archiver) projet ──────────────────────────────────────────────────
-exports.deleteProject = async (req, res) => {
+exports.archiveProject = async (req, res) => {
   try {
     const { Project } = getTenantModels(req);
     await Project.findByIdAndUpdate(req.params.id, { status: "archived" });

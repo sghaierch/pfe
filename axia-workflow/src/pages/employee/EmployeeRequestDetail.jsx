@@ -26,6 +26,7 @@ const IDoc      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="no
 const IUser     = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
 const IBriefcase= () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>;
 const IRocket   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2l5-5L7.5 11.5l-3 5z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>;
+const IFile     = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>;
 const ILoader   = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={T.blue} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation:'spin .8s linear infinite'}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>;
 
 // Status config
@@ -108,6 +109,135 @@ const HistoryTimeline = ({ history }) => {
   );
 };
 
+
+// ── Affichage des données remplies dans un formulaire d'étape ─────────────
+const renderFieldValue = (field) => {
+  const val = field.data;
+  if (val === null || val === undefined || val === '') {
+    return <span style={{ color:T.slateL, fontStyle:'italic' }}>Non renseigné</span>;
+  }
+  if (field.type === 'checkbox') {
+    return <span style={{ color: val ? T.green : T.red, fontWeight:700 }}>{val ? '✅ Oui' : '❌ Non'}</span>;
+  }
+  if (field.type === 'file') {
+    if (typeof val === 'string' && val.startsWith('http')) {
+      return <a href={val} target="_blank" rel="noreferrer" style={{ color:T.blue, fontWeight:600, textDecoration:'underline' }}>📎 Voir le fichier</a>;
+    }
+    return <span style={{ color:T.slateM }}>📎 Fichier joint</span>;
+  }
+  if (field.type === 'signature') {
+    if (typeof val === 'string' && val.startsWith('data:image')) {
+      return <img src={val} alt="Signature" style={{ maxHeight:'60px', border:`1px solid ${T.border}`, borderRadius:'6px', background:'#fff', padding:'4px' }}/>;
+    }
+    return <span style={{ color:T.slateL, fontStyle:'italic' }}>Signature non disponible</span>;
+  }
+  if (field.type === 'table' && Array.isArray(val)) {
+    if (val.length === 0) return <span style={{ color:T.slateL, fontStyle:'italic' }}>Tableau vide</span>;
+    const cols = field.columns || [];
+    return (
+      <div style={{ overflowX:'auto', marginTop:'4px' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
+          <thead>
+            <tr style={{ background:'#F8FAFC' }}>
+              {cols.map(col => (
+                <th key={col.id} style={{ padding:'6px 10px', textAlign:'left', fontWeight:700, color:T.slateM, borderBottom:`1.5px solid ${T.border}`, whiteSpace:'nowrap' }}>{col.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {val.map((row, ri) => (
+              <tr key={ri} style={{ borderBottom:`1px solid ${T.border}` }}>
+                {cols.map(col => (
+                  <td key={col.id} style={{ padding:'6px 10px', color:T.slate }}>{row[col.id] ?? '—'}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  if (field.type === 'date' && val) {
+    try { return <span style={{ fontWeight:600, color:T.slate }}>{new Date(val).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })}</span>; }
+    catch { return <span>{val}</span>; }
+  }
+  if (Array.isArray(val)) return <span style={{ color:T.slate }}>{val.join(', ')}</span>;
+  return <span style={{ color:T.slate, fontWeight:500 }}>{String(val)}</span>;
+};
+
+const FormDataSection = ({ steps }) => {
+  const stepsWithData = (steps || []).filter(s =>
+    s.form?.fields?.some(f => f.data !== null && f.data !== undefined && f.data !== '')
+  );
+
+  if (stepsWithData.length === 0) {
+    return (
+      <div style={{ padding:'48px', textAlign:'center', color:T.slateL }}>
+        <p style={{ fontSize:'32px', margin:'0 0 12px' }}>📋</p>
+        <p style={{ fontWeight:700, fontSize:'14px', color:T.slate, margin:'0 0 6px' }}>Aucune donnée de formulaire</p>
+        <p style={{ fontSize:'13px', margin:0 }}>Les données seront visibles ici une fois les étapes complétées.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding:'20px 24px', display:'flex', flexDirection:'column', gap:'20px' }}>
+      {stepsWithData.map((step, si) => {
+        const sc = stepStatusCfg[step.status] || stepStatusCfg.pending;
+        const fieldsWithData = (step.form?.fields || []).filter(f =>
+          f.data !== null && f.data !== undefined && f.data !== ''
+        );
+        return (
+          <div key={si} style={{ background:'#FAFBFF', borderRadius:'12px', border:`1.5px solid ${sc.border}`, overflow:'hidden' }}>
+            {/* En-tête étape */}
+            <div style={{ padding:'12px 16px', background:sc.bg, borderBottom:`1.5px solid ${sc.border}`, display:'flex', alignItems:'center', gap:'10px' }}>
+              <div style={{ width:'28px', height:'28px', borderRadius:'50%', background:'#fff', border:`2px solid ${sc.border}`, display:'flex', alignItems:'center', justifyContent:'center', color:sc.color, fontWeight:700, fontSize:'12px', flexShrink:0 }}>
+                {step.status === 'completed' ? '✓' : step.status === 'rejected' ? '✕' : si + 1}
+              </div>
+              <div style={{ flex:1 }}>
+                <p style={{ margin:0, fontWeight:700, fontSize:'14px', color:T.slate }}>{step.name}</p>
+                {(step.assignedToName || step.assignedPost) && (
+                  <p style={{ margin:'2px 0 0', fontSize:'11px', color:T.slateM }}>
+                    Rempli par : {step.assignedToName || step.assignedPost}
+                    {step.completedAt && ` · ${fmtDate(step.completedAt)}`}
+                  </p>
+                )}
+              </div>
+              <span style={{ background:'#fff', color:sc.color, padding:'3px 10px', borderRadius:'20px', fontSize:'11px', fontWeight:700, border:`1px solid ${sc.border}` }}>
+                {step.status === 'completed' ? 'Validée' : step.status === 'in_progress' ? 'En cours' : step.status === 'rejected' ? 'Rejetée' : 'En attente'}
+              </span>
+            </div>
+
+            {/* Champs */}
+            <div style={{ padding:'16px', display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'12px' }}>
+              {fieldsWithData.map((field, fi) => (
+                <div key={fi} style={{
+                  background:'#fff',
+                  borderRadius:'9px',
+                  border:`1.5px solid ${T.border}`,
+                  padding:'12px 14px',
+                  gridColumn: ['table','signature','textarea'].includes(field.type) ? '1 / -1' : 'auto',
+                }}>
+                  <p style={{ margin:'0 0 6px', fontSize:'11px', fontWeight:700, color:T.slateM, textTransform:'uppercase', letterSpacing:'0.06em' }}>{field.label}</p>
+                  <div style={{ fontSize:'13px', lineHeight:1.5 }}>{renderFieldValue(field)}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Commentaire de validation */}
+            {step.comment && (
+              <div style={{ margin:'0 16px 16px', padding:'10px 14px', background:'#FFFBEB', borderRadius:'9px', border:`1.5px solid ${T.amberBorder}` }}>
+                <p style={{ margin:'0 0 3px', fontSize:'11px', fontWeight:700, color:T.amber, textTransform:'uppercase', letterSpacing:'0.06em' }}>Commentaire</p>
+                <p style={{ margin:0, fontSize:'13px', color:'#92400E', fontStyle:'italic' }}>"{step.comment}"</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const EmployeeRequestDetail = () => {
   const { id }      = useParams();
   const navigate    = useNavigate();
@@ -116,7 +246,7 @@ const EmployeeRequestDetail = () => {
   const [documents, setDocuments] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
-  const [activeTab, setActiveTab] = useState('progression');
+  const [activeTab, setActiveTab] = useState('dossier');
 
   useEffect(() => {
     const load = async () => {
@@ -156,10 +286,12 @@ const EmployeeRequestDetail = () => {
   const lColor=isCompleted?T.green:isRejected?T.red:T.blue;
 
   const TABS = [
+    { key:'dossier',     label:'Dossier',      icon:<IFile/> },
     { key:'progression', label:'Progression',  icon:<IBar/>  },
     { key:'historique',  label:'Historique',   icon:<IHist/>, count:workflow.history?.length||0 },
     { key:'documents',   label:'Documents',    icon:<IDoc/>,  count:documents.length },
   ];
+  // Onglet Dossier actif par défaut
 
   return (
     <>
@@ -240,6 +372,15 @@ const EmployeeRequestDetail = () => {
 
           {/* Tab content */}
           <div style={{ background:T.surface, borderRadius:'14px', border:`1.5px solid ${T.border}`, boxShadow:'0 1px 6px rgba(15,23,42,0.06)', overflow:'hidden' }}>
+            {activeTab==='dossier'&&(
+              <div>
+                <div style={{ padding:'16px 24px', borderBottom:`1.5px solid ${T.border}`, display:'flex', alignItems:'center', gap:'8px' }}>
+                  <IFile/><h2 style={{ margin:0, fontSize:'15px', fontWeight:700, color:T.slate }}>Données du dossier</h2>
+                  {workflow.docNumber&&<span style={{ marginLeft:'auto', background:'#DBEAFE', color:T.blue, padding:'3px 12px', borderRadius:'20px', fontSize:'13px', fontWeight:800, fontFamily:'monospace', border:`1px solid ${T.blueBorder}` }}>{workflow.docNumber}</span>}
+                </div>
+                <FormDataSection steps={workflow.steps||[]}/>
+              </div>
+            )}
             {activeTab==='progression'&&(
               <div>
                 <div style={{ padding:'16px 24px', borderBottom:`1.5px solid ${T.border}`, display:'flex', alignItems:'center', gap:'8px' }}>

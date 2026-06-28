@@ -6,7 +6,7 @@ import userService from '../../../services/userService';
 // ── Icons ──────────────────────────────────────────────────────────────────
 const IconSearch  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
 const IconEdit    = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-const IconTrash   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
+const IconArchive = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>;
 const IconUsers   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const IconShield  = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
 const IconPlus    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
@@ -42,19 +42,19 @@ const Avatar = ({ user, size = 38 }) => {
 const DeleteModal = ({ user, onConfirm, onCancel, loading }) => (
   <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(4px)' }}>
     <div style={{ background:'#fff', borderRadius:'20px', padding:'32px', maxWidth:'400px', width:'90%', boxShadow:'0 24px 60px rgba(0,0,0,0.25)', textAlign:'center' }}>
-      <div style={{ width:'56px', height:'56px', borderRadius:'14px', background:'#FEF2F2', border:'1.5px solid #FECACA', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
-        <IconTrash />
+      <div style={{ width:'56px', height:'56px', borderRadius:'14px', background:'#FFFBEB', border:'1.5px solid #FDE68A', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px', color:'#D97706' }}>
+        <IconArchive />
       </div>
-      <h3 style={{ margin:'0 0 8px', fontSize:'18px', fontWeight:800, color:'#0F172A' }}>Supprimer l'utilisateur</h3>
+      <h3 style={{ margin:'0 0 8px', fontSize:'18px', fontWeight:800, color:'#0F172A' }}>Archiver l'utilisateur</h3>
       <p style={{ margin:'0 0 24px', color:'#64748B', fontSize:'14px', lineHeight:1.6 }}>
-        Voulez-vous vraiment supprimer <strong style={{color:'#0F172A'}}>{user.firstName} {user.lastName}</strong> ? Cette action est irréversible.
+        Voulez-vous vraiment archiver <strong style={{color:'#0F172A'}}>{user.firstName} {user.lastName}</strong> ? Il ne pourra plus se connecter mais ses données seront conservées.
       </p>
       <div style={{ display:'flex', gap:'10px' }}>
         <button onClick={onCancel} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'1.5px solid #E2E8F0', background:'#fff', fontWeight:600, cursor:'pointer', fontSize:'14px', color:'#475569', fontFamily:"'Inter',sans-serif" }}>
           Annuler
         </button>
-        <button onClick={onConfirm} disabled={loading} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'none', background:'#DC2626', color:'#fff', fontWeight:700, cursor:loading?'not-allowed':'pointer', fontSize:'14px', opacity:loading?0.7:1, fontFamily:"'Inter',sans-serif" }}>
-          {loading ? 'Suppression…' : 'Supprimer'}
+        <button onClick={onConfirm} disabled={loading} style={{ flex:1, padding:'11px', borderRadius:'9px', border:'none', background:'#D97706', color:'#fff', fontWeight:700, cursor:loading?'not-allowed':'pointer', fontSize:'14px', opacity:loading?0.7:1, fontFamily:"'Inter',sans-serif" }}>
+          {loading ? 'Archivage…' : 'Archiver'}
         </button>
       </div>
     </div>
@@ -119,10 +119,10 @@ const UserRow = ({ u, isSelf, onDelete }) => {
           style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#EFF6FF', color:B, display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none', border:'1.5px solid #BFDBFE', transition:'all 0.15s' }}>
           <IconEdit/>
         </Link>
-        {!isSelf && (
-          <button onClick={() => onDelete(u)} title="Supprimer"
-            style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#FEF2F2', color:'#DC2626', display:'flex', alignItems:'center', justifyContent:'center', border:'1.5px solid #FECACA', cursor:'pointer', transition:'all 0.15s' }}>
-            <IconTrash/>
+          {!isSelf && (
+          <button onClick={() => onDelete(u)} title="Archiver"
+            style={{ width:'32px', height:'32px', borderRadius:'8px', background:'#FFFBEB', color:'#D97706', display:'flex', alignItems:'center', justifyContent:'center', border:'1.5px solid #FDE68A', cursor:'pointer', transition:'all 0.15s' }}>
+            <IconArchive/>
           </button>
         )}
       </div>
@@ -166,12 +166,12 @@ const CompanyUsersList = () => {
     } finally { setLoading(false); }
   };
 
-  const handleDeleteConfirm = async () => {
+const handleArchiveConfirm = async () => {
     if (!deleteModal) return;
     setDeleting(true);
     try {
-      await userService.delete(deleteModal._id);
-      setMsg('SUCCESS Utilisateur supprimé avec succès');
+      await userService.archive(deleteModal._id);
+      setMsg('SUCCESS Utilisateur archivé avec succès');
       setDeleteModal(null);
       fetchUsers();
     } catch (err) {
@@ -220,7 +220,8 @@ const CompanyUsersList = () => {
 
       <div style={{ padding:'32px', maxWidth:'1200px', margin:'0 auto', fontFamily:"'Inter',-apple-system,sans-serif" }}>
 
-        {deleteModal && <DeleteModal user={deleteModal} onConfirm={handleDeleteConfirm} onCancel={() => setDeleteModal(null)} loading={deleting}/>}
+       {deleteModal && <DeleteModal user={deleteModal} onConfirm={handleArchiveConfirm} onCancel={() => setDeleteModal(null)} loading={deleting}/>}
+
 
         {/* ── Page header ── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'28px', flexWrap:'wrap', gap:'16px' }}>

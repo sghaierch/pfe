@@ -1,4 +1,4 @@
-const { createUser, getAllUsers, getUserById, updateUser, deleteUser, forgetPassword } = require("../controllers/userController");
+const { createUser, getAllUsers, getUserById, updateUser, archiveUser, forgetPassword } = require("../controllers/userController");
 const { protectorMW, permitMW } = require("../controllers/authController"); 
 
 const express = require("express");
@@ -15,7 +15,7 @@ router.route("/")
 
 router.route("/:id")
   .get(getUserById)
-  .patch(updateUser)
-  .delete(deleteUser);
+  .patch(updateUser);
+router.patch("/:id/archive", archiveUser);
 
 module.exports = router;

@@ -21,13 +21,11 @@ const IconLoader   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill=
 const IconUsers    = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const IconGlobe    = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
 const IconLock     = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
-const IconWarnSm   = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
 const IconSearch   = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
 const IconXSm      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
 const B = '#2563EB';
 
-// ── StatusBadge ────────────────────────────────────────────────────────────
 const STATUS_MAP = {
   draft:     { bg:'#F8FAFC', color:'#64748B', dot:'#94A3B8', border:'#E2E8F0', label:'Brouillon' },
   active:    { bg:'#EFF6FF', color:'#1D4ED8', dot:'#3B82F6', border:'#BFDBFE', label:'Actif'     },
@@ -41,7 +39,6 @@ const StatusBadge = ({ status }) => {
   </span>;
 };
 
-// ── ConfirmDialog ──────────────────────────────────────────────────────────
 const ConfirmDialog = ({ dialog, onConfirm, onCancel }) => {
   if (!dialog) return null;
   const config = {
@@ -65,7 +62,6 @@ const ConfirmDialog = ({ dialog, onConfirm, onCancel }) => {
   );
 };
 
-// ── ProjectDetail ──────────────────────────────────────────────────────────
 const ProjectDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -137,7 +133,6 @@ const ProjectDetail = () => {
     finally { setSaving(false); }
   };
 
-  // ── Filtered lists — must be before any early return (rules of hooks) ────────
   const filteredWf = useMemo(() => {
     const q = searchWf.toLowerCase().trim();
     if (!q) return workflows;
@@ -154,6 +149,7 @@ const ProjectDetail = () => {
     return instances.filter(inst =>
       inst.name?.toLowerCase().includes(q) ||
       inst.status?.toLowerCase().includes(q) ||
+      inst.docNumber?.toLowerCase().includes(q) ||
       inst.submittedBy?.firstName?.toLowerCase().includes(q) ||
       inst.submittedBy?.lastName?.toLowerCase().includes(q)
     );
@@ -194,7 +190,6 @@ const ProjectDetail = () => {
 
           <div style={{ padding:'32px', fontFamily:"'Inter',-apple-system,sans-serif" }}>
 
-            {/* ── Toast ── */}
             {msg && (
               <div style={{ position:'fixed', top:'24px', right:'24px', zIndex:9999, padding:'13px 18px', borderRadius:'12px', fontWeight:600, fontSize:'14px', boxShadow:'0 8px 24px rgba(0,0,0,0.12)', animation:'slideIn 0.25s ease', display:'flex', alignItems:'center', gap:'9px', ...(isSuccess ? {background:'#F0FDF4',border:'1.5px solid #BBF7D0',color:'#16A34A'} : {background:'#FEF2F2',border:'1.5px solid #FECACA',color:'#DC2626'}) }}>
                 {isSuccess ? <IconCheck/> : <IconAlert/>} {msgText}
@@ -225,7 +220,6 @@ const ProjectDetail = () => {
                     <div style={{ width:'34px', height:'34px', borderRadius:'9px', background:'#EFF6FF', border:`1.5px solid #BFDBFE`, display:'flex', alignItems:'center', justifyContent:'center', color:B }}><IconGear/></div>
                     <h2 style={{ margin:0, color:'#0F172A', fontWeight:900, fontSize:'18px' }}>Nouveau workflow</h2>
                   </div>
-
                   <div style={{marginBottom:'16px'}}>
                     <label style={{display:'block',fontWeight:700,fontSize:'12px',color:'#64748B',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:'7px'}}>Nom du workflow *</label>
                     <input defaultValue="" onChange={e=>wfNameRef.current=e.target.value} placeholder="Ex : Validation des plans" autoFocus style={inpStyle}/>
@@ -238,7 +232,6 @@ const ProjectDetail = () => {
                     <label style={{display:'block',fontWeight:700,fontSize:'12px',color:'#64748B',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:'7px'}}>Date d'échéance</label>
                     <input type="date" defaultValue={new Date().toISOString().split('T')[0]} onChange={e=>wfDueRef.current=e.target.value} style={inpStyle}/>
                   </div>
-
                   <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
                     <button onClick={()=>{setStep1(false);wfNameRef.current='';wfDescRef.current='';wfDueRef.current='';}}
                       style={{padding:'10px 20px',borderRadius:'9px',border:'1.5px solid #E2E8F0',background:'#fff',cursor:'pointer',fontWeight:600,color:'#475569',fontFamily:"'Inter',sans-serif"}}>
@@ -253,9 +246,8 @@ const ProjectDetail = () => {
               </div>
             )}
 
-            {/* ── Tabs + Search on same row ── */}
+            {/* ── Tabs ── */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'16px', marginBottom:'24px', flexWrap:'wrap' }}>
-              {/* Tab pills */}
               <div style={{ display:'flex', gap:'4px', padding:'4px', background:'#F1F5F9', borderRadius:'12px' }}>
                 {[
                   { key:'workflows', label:'Workflows', icon:<IconGear/>,  count: workflows.length },
@@ -272,36 +264,21 @@ const ProjectDetail = () => {
                   );
                 })}
               </div>
-
-              {/* Search — adapts to active tab */}
               <div style={{ position:'relative', width:'280px', flexShrink:0 }}>
-                <span style={{ position:'absolute', left:'11px', top:'50%', transform:'translateY(-50%)', color:'#94A3B8', pointerEvents:'none', display:'flex' }}>
-                  <IconSearch/>
-                </span>
+                <span style={{ position:'absolute', left:'11px', top:'50%', transform:'translateY(-50%)', color:'#94A3B8', pointerEvents:'none', display:'flex' }}><IconSearch/></span>
                 {activeTab === 'workflows' ? (
-                  <input
-                    key="wf-search"
-                    value={searchWf}
-                    onChange={e=>setSearchWf(e.target.value)}
-                    placeholder="Rechercher un workflow…"
+                  <input key="wf-search" value={searchWf} onChange={e=>setSearchWf(e.target.value)} placeholder="Rechercher un workflow…"
                     style={{ width:'100%', boxSizing:'border-box', padding:'8px 32px 8px 36px', borderRadius:'9px', border:'1.5px solid #E2E8F0', fontSize:'13px', color:'#0F172A', outline:'none', background:'#F8FAFC', fontFamily:"'Inter',sans-serif", transition:'all 0.15s' }}
                     onFocus={e=>{e.target.style.borderColor=B;e.target.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';e.target.style.background='#fff';}}
-                    onBlur={e=>{e.target.style.borderColor='#E2E8F0';e.target.style.boxShadow='none';e.target.style.background='#F8FAFC';}}
-                  />
+                    onBlur={e=>{e.target.style.borderColor='#E2E8F0';e.target.style.boxShadow='none';e.target.style.background='#F8FAFC';}}/>
                 ) : (
-                  <input
-                    key="dem-search"
-                    value={searchDem}
-                    onChange={e=>setSearchDem(e.target.value)}
-                    placeholder="Rechercher une demande…"
+                  <input key="dem-search" value={searchDem} onChange={e=>setSearchDem(e.target.value)} placeholder="Rechercher une demande, un numéro…"
                     style={{ width:'100%', boxSizing:'border-box', padding:'8px 32px 8px 36px', borderRadius:'9px', border:'1.5px solid #E2E8F0', fontSize:'13px', color:'#0F172A', outline:'none', background:'#F8FAFC', fontFamily:"'Inter',sans-serif", transition:'all 0.15s' }}
                     onFocus={e=>{e.target.style.borderColor=B;e.target.style.boxShadow='0 0 0 3px rgba(37,99,235,0.1)';e.target.style.background='#fff';}}
-                    onBlur={e=>{e.target.style.borderColor='#E2E8F0';e.target.style.boxShadow='none';e.target.style.background='#F8FAFC';}}
-                  />
+                    onBlur={e=>{e.target.style.borderColor='#E2E8F0';e.target.style.boxShadow='none';e.target.style.background='#F8FAFC';}}/>
                 )}
                 {(activeTab === 'workflows' ? searchWf : searchDem) && (
-                  <button
-                    onClick={() => activeTab === 'workflows' ? setSearchWf('') : setSearchDem('')}
+                  <button onClick={() => activeTab === 'workflows' ? setSearchWf('') : setSearchDem('')}
                     style={{ position:'absolute', right:'9px', top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#94A3B8', cursor:'pointer', padding:'2px', display:'flex' }}>
                     <IconXSm/>
                   </button>
@@ -338,9 +315,7 @@ const ProjectDetail = () => {
                   <div style={{textAlign:'center',padding:'48px',background:'#fff',borderRadius:'14px',border:'1.5px solid #E2E8F0'}}>
                     <p style={{margin:'0 0 8px',fontWeight:700,color:'#0F172A',fontSize:'15px'}}>Aucun résultat pour « {searchWf} »</p>
                     <p style={{margin:'0 0 16px',color:'#94A3B8',fontSize:'13px'}}>Essayez un autre nom ou statut.</p>
-                    <button onClick={()=>setSearchWf('')} style={{padding:'7px 16px',borderRadius:'8px',border:`1.5px solid ${B}`,color:B,background:'#fff',cursor:'pointer',fontWeight:600,fontSize:'13px',fontFamily:"'Inter',sans-serif"}}>
-                      Effacer la recherche
-                    </button>
+                    <button onClick={()=>setSearchWf('')} style={{padding:'7px 16px',borderRadius:'8px',border:`1.5px solid ${B}`,color:B,background:'#fff',cursor:'pointer',fontWeight:600,fontSize:'13px',fontFamily:"'Inter',sans-serif"}}>Effacer la recherche</button>
                   </div>
                 ) : (
                   <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
@@ -348,14 +323,11 @@ const ProjectDetail = () => {
                       <div key={wf._id} className="wf-card"
                         style={{background:'#fff',borderRadius:'14px',border:'1.5px solid #E2E8F0',padding:'20px 24px',boxShadow:'0 2px 8px rgba(0,0,0,0.04)',transition:'all 0.2s'}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'16px',flexWrap:'wrap'}}>
-                          {/* Left */}
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{display:'flex',alignItems:'center',gap:'10px',marginBottom:'14px',flexWrap:'wrap'}}>
                               <h3 style={{margin:0,fontSize:'16px',fontWeight:800,color:'#0F172A'}}>{wf.name}</h3>
                               <StatusBadge status={wf.status}/>
                             </div>
-
-                            {/* Steps progress */}
                             {wf.steps?.length > 0 && (
                               <div style={{display:'flex',alignItems:'center',gap:'4px',flexWrap:'wrap',marginBottom:'12px'}}>
                                 {wf.steps.map((step, i) => {
@@ -373,15 +345,11 @@ const ProjectDetail = () => {
                                 })}
                               </div>
                             )}
-
-                            {/* Meta */}
                             <div style={{display:'flex',alignItems:'center',gap:'16px',flexWrap:'wrap'}}>
                               <span style={{fontSize:'12px',color:'#94A3B8'}}>
                                 Étape {(wf.currentStep||0)+1} / {wf.steps?.length||0}
                                 {wf.dueDate && ` · Échéance : ${new Date(wf.dueDate).toLocaleDateString('fr-FR')}`}
                               </span>
-
-                              {/* Visibility */}
                               {wf.allowedPosts?.length > 0 ? (
                                 <div style={{display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
                                   <span style={{display:'inline-flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'#2563EB',fontWeight:700}}><IconLock/> Accès restreint :</span>
@@ -396,8 +364,6 @@ const ProjectDetail = () => {
                               )}
                             </div>
                           </div>
-
-                          {/* Actions */}
                           <div style={{display:'flex',gap:'7px',alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
                             {wf.status==='draft' && (
                               <button onClick={()=>setConfirmDialog({type:'start',wf})}
@@ -433,7 +399,6 @@ const ProjectDetail = () => {
                     ))}
                   </div>
                 )}
-                {/* Counter */}
                 {workflows.length > 0 && filteredWf.length > 0 && (
                   <p style={{textAlign:'right',marginTop:'12px',fontSize:'12px',color:'#94A3B8'}}>
                     <strong style={{color:'#0F172A'}}>{filteredWf.length}</strong> / {workflows.length} workflow(s)
@@ -455,10 +420,8 @@ const ProjectDetail = () => {
                 ) : filteredDem.length === 0 ? (
                   <div style={{textAlign:'center',padding:'48px',background:'#fff',borderRadius:'14px',border:'1.5px solid #E2E8F0'}}>
                     <p style={{margin:'0 0 8px',fontWeight:700,color:'#0F172A',fontSize:'15px'}}>Aucun résultat pour « {searchDem} »</p>
-                    <p style={{margin:'0 0 16px',color:'#94A3B8',fontSize:'13px'}}>Essayez un autre nom ou statut.</p>
-                    <button onClick={()=>setSearchDem('')} style={{padding:'7px 16px',borderRadius:'8px',border:`1.5px solid ${B}`,color:B,background:'#fff',cursor:'pointer',fontWeight:600,fontSize:'13px',fontFamily:"'Inter',sans-serif"}}>
-                      Effacer la recherche
-                    </button>
+                    <p style={{margin:'0 0 16px',color:'#94A3B8',fontSize:'13px'}}>Essayez un autre nom, numéro ou statut.</p>
+                    <button onClick={()=>setSearchDem('')} style={{padding:'7px 16px',borderRadius:'8px',border:`1.5px solid ${B}`,color:B,background:'#fff',cursor:'pointer',fontWeight:600,fontSize:'13px',fontFamily:"'Inter',sans-serif"}}>Effacer la recherche</button>
                   </div>
                 ) : (
                   <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
@@ -477,6 +440,22 @@ const ProjectDetail = () => {
                                 <span style={{width:'8px',height:'8px',borderRadius:'50%',background:dotColor,flexShrink:0}}/>
                                 <h3 style={{margin:0,fontSize:'15px',fontWeight:800,color:'#0F172A'}}>{inst.name}</h3>
                                 <StatusBadge status={inst.status}/>
+                                {/* ✅ Badge numéro de document */}
+                                {inst.docNumber && (
+                                  <span style={{
+                                    fontFamily:'monospace',
+                                    background:'#F0FDF4',
+                                    color:'#16A34A',
+                                    padding:'3px 10px',
+                                    borderRadius:'20px',
+                                    fontSize:'12px',
+                                    fontWeight:800,
+                                    border:'1.5px solid #BBF7D0',
+                                    letterSpacing:'0.5px',
+                                  }}>
+                                    {inst.docNumber}
+                                  </span>
+                                )}
                               </div>
 
                               {/* Progress bar */}

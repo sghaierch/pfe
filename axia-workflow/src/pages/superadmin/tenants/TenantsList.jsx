@@ -96,8 +96,14 @@ const SubscriptionHistory = ({ tenantId }) => {
 
 /* ── Modals ── */
 const ApproveModal = ({ tenant, onClose, onConfirm, renewMode }) => {
-  const [months, setMonths] = useState(tenant.subscription?.durationMonths || 1);
+  // ✅ En mode approbation : durée fixée par l'entreprise, non modifiable
+  // En mode renouvellement : l'admin choisit la nouvelle durée
+  const chosenDuration = tenant.subscription?.durationMonths || 1;
+  const [months, setMonths] = useState(chosenDuration);
   const [loading, setLoading] = useState(false);
+
+  const durationLabel = (m) => m === 12 ? '1 an' : m === 24 ? '2 ans' : `${m} mois`;
+
   return (
     <div className="sa-modal-overlay" onClick={onClose}>
       <div className="sa-modal sa-modal-sm" onClick={e => e.stopPropagation()}>
@@ -115,13 +121,27 @@ const ApproveModal = ({ tenant, onClose, onConfirm, renewMode }) => {
               : <>Approuver <strong>{tenant.companyName}</strong> ? Les identifiants seront envoyés à <strong>{tenant.adminEmail}</strong>.</>
             }
           </p>
+
           <label style={{ fontSize: '12px', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '.4px' }}>
             Durée de l'abonnement
           </label>
-          <select value={months} onChange={e => setMonths(parseInt(e.target.value))}
-            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }}>
-            {[1,2,3,6,12,24].map(m => <option key={m} value={m}>{m} mois{m===12?' (1 an)':m===24?' (2 ans)':''}</option>)}
-          </select>
+
+          {renewMode ? (
+            // ✅ Renouvellement : l'admin choisit la durée
+            <select value={months} onChange={e => setMonths(parseInt(e.target.value))}
+              style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px' }}>
+              {[1,2,3,6,12,24].map(m => <option key={m} value={m}>{m} mois{m===12?' (1 an)':m===24?' (2 ans)':''}</option>)}
+            </select>
+          ) : (
+            // ✅ Approbation : afficher la durée choisie par l'entreprise (non modifiable)
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '8px', background: '#f0fdf4', border: '1.5px solid #bbf7d0' }}>
+              <i className="ri-time-line" style={{ color: '#16a34a', fontSize: '16px' }}></i>
+              <div>
+                <span style={{ fontWeight: 700, fontSize: '15px', color: '#0f172a' }}>{durationLabel(chosenDuration)}</span>
+                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#64748b' }}>— choisi par l'entreprise lors de l'inscription</span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="sa-modal-footer">
           <button className="sa-btn-secondary" onClick={onClose}>Annuler</button>
@@ -305,7 +325,7 @@ const TenantDetail = ({ tenant, plans, onClose, onAction, msg }) => {
         ))}
         <Btn icon="ri-vip-diamond-line"  label="Changer plan"     bg="#ede9fe" color="#7c3aed" border="#c4b5fd" onClick={() => setChangePlanModal(true)} />
         <Btn icon="ri-settings-3-line"   label="Limites"          bg="#e0f2fe" color="#0369a1" border="#7dd3fc" onClick={() => setEditLimitsModal(true)} />
-        <Btn icon="ri-delete-bin-6-line" label="Supprimer"        bg="#fff5f5" color="#dc2626" border="#fca5a5" onClick={() => onAction('delete')} />
+        <Btn icon="ri-archive-line" label="Supprimer" bg="#fff7ed" color="#f59e0b" border="#fed7aa" onClick={() => onAction('delete')} />
       </div>
 
       {/* Tabs */}
@@ -635,8 +655,8 @@ const TenantsList = () => {
                       {(t.status === 'suspended' || t.status === 'rejected') && <button onClick={() => setActionModal({ tenant: t, type: 'reactivate' })} title="Réactiver" style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#dcfce7', border: '1px solid #86efac', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <i className="ri-play-circle-line" style={{ fontSize: '14px' }}></i>
                       </button>}
-                      <button onClick={() => setActionModal({ tenant: t, type: 'delete' })} title="Supprimer" style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff5f5', border: '1px solid #fecaca', cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="ri-delete-bin-6-line" style={{ fontSize: '14px' }}></i>
+                      <button onClick={() => setActionModal({ tenant: t, type: 'delete' })} title="Supprimer" style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff7ed', border: '1px solid #fed7aa', cursor: 'pointer', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<i className="ri-archive-line" style={{ fontSize: '14px' }}></i>
                       </button>
                     </div>
                   </td>
@@ -660,7 +680,7 @@ const ActionModal = ({ actionModal, onClose, onConfirm }) => {
   const CFG = {
     suspend:    { title: 'Suspendre l\'entreprise', icon: 'ri-pause-circle-line',   color: '#ea580c', msg: (t) => `Suspendre <strong>${t.companyName}</strong> ?`, danger: true },
     reactivate: { title: 'Réactiver l\'entreprise', icon: 'ri-play-circle-line',    color: '#16a34a', msg: (t) => `Réactiver <strong>${t.companyName}</strong> ?`, danger: false },
-    delete:     { title: 'Supprimer l\'entreprise', icon: 'ri-delete-bin-6-line',  color: '#dc2626', msg: (t) => `Supprimer définitivement <strong>${t.companyName}</strong> ? <br><br><span style="color:#dc2626">⚠️ La base <code>${t.dbName}</code> ne sera pas supprimée.</span>`, danger: true },
+    delete: { title: 'Supprimer l\'entreprise', icon: 'ri-archive-line', color: '#f59e0b', msg: (t) => `Supprimer définitivement <strong>${t.companyName}</strong> ? <br><br><span style="color:#dc2626">⚠️ La base <code>${t.dbName}</code> ne sera pas supprimée.</span>`, danger: true },
   };
   const c = CFG[actionModal.type] || {};
   return (

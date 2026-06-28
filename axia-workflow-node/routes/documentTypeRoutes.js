@@ -6,7 +6,7 @@ const {
   getDocumentTypeById,
   createDocumentType,
   updateDocumentType,
-  deleteDocumentType,
+  archiveDocumentType,
   generateNumber
 } = require('../controllers/documentTypeController');
 
@@ -16,6 +16,6 @@ router.get('/',     getDocumentTypes);
 router.post('/',    createDocumentType);
 router.get('/:id',  getDocumentTypeById);
 router.patch('/:id', updateDocumentType);
-router.delete('/:id', deleteDocumentType);
+router.patch('/:id/archive', archiveDocumentType);
 router.post('/:id/generate-number', generateNumber);
 module.exports = router;

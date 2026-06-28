@@ -261,45 +261,14 @@ const RequesterSection = ({ myRequests, loadingRequests, navigate }) => {
 };
 
 // ── TasksSection ──────────────────────────────────────────────────────────
-const TasksSection = ({ tasks, loading, onComplete, onReject, saving, formValues, setFormValues, checklists, setChecklists, comments, setComments, fileRefs, onUpload, uploading, msg }) => {
-  const renderField = (field, wfId, task) => {
-    const value    = formValues[wfId]?.[field.id]??'';
-    const base     = { width:'100%', padding:'9px 12px', borderRadius:'9px', border:`1.5px solid ${T.border}`, fontSize:'14px', boxSizing:'border-box', fontFamily:font, outline:'none', color:T.slate };
-    const lbl      = <label style={{ display:'block', fontWeight:700, fontSize:'11px', color:T.slateM, marginBottom:'6px', textTransform:'uppercase', letterSpacing:'0.06em' }}>{field.label}{field.required&&<span style={{ color:T.red, marginLeft:'3px' }}>*</span>}</label>;
-    const onChange = val=>setFormValues(p=>({...p,[wfId]:{...p[wfId],[field.id]:val}}));
-    if (field.type==='signature') return <div key={field.id} style={{ marginBottom:'14px' }}>{lbl}<SignatureCanvas value={value} onChange={onChange}/></div>;
-    if (field.type==='select')   return <div key={field.id} style={{ marginBottom:'14px' }}>{lbl}<select value={value} onChange={e=>onChange(e.target.value)} style={{ ...base, cursor:'pointer' }}><option value="">— Choisir —</option>{(field.options||[]).map((o,i)=><option key={i} value={o}>{o}</option>)}</select></div>;
-    if (field.type==='textarea') return <div key={field.id} style={{ marginBottom:'14px' }}>{lbl}<textarea value={value} onChange={e=>onChange(e.target.value)} rows={3} style={{ ...base, resize:'vertical' }}/></div>;
-    if (field.type==='checkbox') return <div key={field.id} style={{ marginBottom:'14px' }}><label style={{ display:'flex', alignItems:'center', gap:'8px', cursor:'pointer' }}><input type="checkbox" checked={value===true||value==='true'} onChange={e=>onChange(e.target.checked)} style={{ width:'16px', height:'16px', accentColor:T.blue }}/><span style={{ fontWeight:600, fontSize:'13px', color:T.slate }}>{field.label}{field.required&&<span style={{ color:T.red }}> *</span>}</span></label></div>;
-    if (field.type==='table') {
-      const rows=Array.isArray(value)?value:[]; const extraCols=field.extraColumns||[]; const extraColIds=new Set(extraCols.map(c=>c.id));
-      const step0TableField=(task?.step0Fields||[]).find(f0=>f0.type==='table');
-      const inheritedCols=(step0TableField?.columns||[]).filter(c=>!extraColIds.has(c.id));
-      const allCols=[...inheritedCols,...extraCols];
-      if (allCols.length===0) return <div key={field.id} style={{ marginBottom:'14px' }}>{lbl}<p style={{ color:T.slateM,fontSize:'13px' }}>Aucune colonne configurée.</p></div>;
-      const gridCols=allCols.map(c=>c.type==='number'?'120px':'1fr').join(' ');
-      return (
-        <div key={field.id} style={{ marginBottom:'20px', gridColumn:'1 / -1' }}>
-          {lbl}
-          <div style={{ border:`1.5px solid #BAE6FD`, borderRadius:'10px', overflow:'hidden' }}>
-            <div style={{ display:'grid', gridTemplateColumns:gridCols, gap:'8px', padding:'8px 12px', background:'#E0F2FE' }}>
-              {inheritedCols.map(c=><span key={c.id} style={{ fontSize:'11px', fontWeight:700, color:'#0369A1', textTransform:'uppercase' }}>{c.label} 🔒</span>)}
-              {extraCols.map(c=><span key={c.id} style={{ fontSize:'11px', fontWeight:700, color:T.blue, textTransform:'uppercase' }}>{c.label} ✎</span>)}
-            </div>
-            {rows.length===0?<div style={{ padding:'12px', color:T.slateM, fontSize:'13px', textAlign:'center', background:'#fff' }}>Aucune donnée propagée.</div>:rows.map((row,ri)=>(
-              <div key={ri} style={{ display:'grid', gridTemplateColumns:gridCols, gap:'8px', padding:'8px 12px', background:ri%2===0?'#fff':'#F8FAFC', alignItems:'center', borderTop:`1px solid #BAE6FD` }}>
-                {inheritedCols.map(c=><span key={c.id} style={{ fontSize:'13px', color:T.slate }}>{row[c.id]??'—'}</span>)}
-                {extraCols.map(c=><input key={c.id} type={c.type==='number'?'number':'text'} min={c.type==='number'?'0':undefined} value={row[c.id]??''} placeholder={c.label} onChange={e=>{ const newRows=rows.map((r,i)=>i===ri?{...r,[c.id]:c.type==='number'?(e.target.value===''?'':parseFloat(e.target.value)):e.target.value}:r); onChange(newRows); }} style={{ ...base, padding:'6px 10px', border:`1.5px solid ${T.blue}40`, background:'#F0F9FF' }}/>)}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    return <div key={field.id} style={{ marginBottom:'14px' }}>{lbl}<input type={field.type==='date'?'date':field.type==='number'?'number':'text'} value={value} onChange={e=>onChange(e.target.value)} placeholder={field.label} style={base}/></div>;
-  };
+const TasksSection = ({ tasks, loading, navigate }) => {
+  if (loading) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'60px', gap:'12px', color:T.slateL }}>
+      <ILoader/><span style={{ fontSize:'14px', fontWeight:600 }}>Chargement des tâches…</span>
+    </div>
+  );
 
-  if (!loading&&tasks.length===0) return (
+  if (tasks.length === 0) return (
     <div style={{ ...card, padding:'56px 40px', textAlign:'center' }}>
       <div style={{ width:'64px', height:'64px', borderRadius:'50%', background:T.greenSoft, border:`1.5px solid ${T.greenBorder}`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', color:T.green }}><ITask/></div>
       <h3 style={{ margin:'0 0 6px', color:T.slate, fontFamily:font, fontWeight:800 }}>Tout est traité !</h3>
@@ -308,133 +277,61 @@ const TasksSection = ({ tasks, loading, onComplete, onReject, saving, formValues
   );
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
-      {msg&&(()=>{ const ok=msg.startsWith('SUCCESS'),warn=msg.startsWith('WARN'); return <div style={{ padding:'12px 16px', borderRadius:'10px', fontWeight:600, background:ok?T.greenSoft:warn?T.amberSoft:T.redSoft, color:ok?T.green:warn?T.amber:T.red, fontSize:'14px', border:`1.5px solid ${ok?T.greenBorder:warn?T.amberBorder:T.redBorder}`, display:'flex', alignItems:'center', gap:'8px' }}>{ok?<ICheck/>:warn?<IAlert/>:<IAlert/>}{msg.replace(/^(SUCCESS|WARN|ERREUR)\s?/,'')}</div>; })()}
+    <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
       {tasks.map(task => {
-        const wfId=task.workflowId, step=task.step, checks=checklists[wfId]||[];
-        const hasForm=step.form?.fields?.length>0, hasCheck=checks.length>0, isSaving=saving===wfId;
-        const isUrgent=task.dueDate&&new Date(task.dueDate)<new Date(Date.now()+24*3600*1000);
+        const step = task.step;
+        const isUrgent = task.dueDate && new Date(task.dueDate) < new Date(Date.now() + 24*3600*1000);
+        const checkCount  = step.checklist?.length || 0;
+        const fieldCount  = step.form?.fields?.length || 0;
         return (
-          <div key={wfId} style={{ ...card, padding:'0', border:`2px solid ${isUrgent?T.red:T.blue}`, overflow:'hidden' }}>
-            {/* Task header */}
-            <div style={{ padding:'18px 24px', background:isUrgent?T.redSoft:T.blueSoft, borderBottom:`1.5px solid ${isUrgent?T.redBorder:T.blueBorder}`, display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div key={task.workflowId}
+            onClick={() => navigate('/dashboard/employee/tasks/' + task.workflowId)}
+            style={{ ...card, padding:'0', border:`1.5px solid ${isUrgent ? T.redBorder : T.border}`, cursor:'pointer', transition:'all .15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = isUrgent ? T.red : T.blue; e.currentTarget.style.boxShadow = '0 4px 16px rgba(37,99,235,0.1)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = isUrgent ? T.redBorder : T.border; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            <div style={{ padding:'16px 20px', display:'flex', alignItems:'center', gap:'16px' }}>
+              {/* Icône étape */}
+              <div style={{ width:'46px', height:'46px', borderRadius:'12px', background: isUrgent ? T.redSoft : T.blueSoft, border:`1.5px solid ${isUrgent ? T.redBorder : T.blueBorder}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color: isUrgent ? T.red : T.blue, fontWeight:900, fontSize:'16px' }}>
+                {task.stepIndex + 1}
+              </div>
+
+              {/* Contenu principal */}
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px', flexWrap:'wrap' }}>
-                  {isUrgent&&<span style={{ display:'inline-flex', alignItems:'center', gap:'4px', background:T.red, color:'#fff', padding:'3px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:700 }}><IAlert/> URGENT</span>}
-                  {task.docNumber&&<span style={{ background:'#E0E7FF', color:T.blue, padding:'3px 10px', borderRadius:'6px', fontSize:'12px', fontWeight:800, fontFamily:'monospace', border:'1px solid #C7D2FE' }}>{task.docNumber}</span>}
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px', flexWrap:'wrap' }}>
+                  {task.docNumber && (
+                    <span style={{ background:'#E0E7FF', color:T.blue, padding:'2px 9px', borderRadius:'6px', fontSize:'11px', fontWeight:800, fontFamily:'monospace', border:'1px solid #C7D2FE' }}>
+                      {task.docNumber}
+                    </span>
+                  )}
+                  {isUrgent && (
+                    <span style={{ background:T.red, color:'#fff', padding:'2px 8px', borderRadius:'20px', fontSize:'10px', fontWeight:700, display:'inline-flex', alignItems:'center', gap:'3px' }}>
+                      <IAlert/> URGENT
+                    </span>
+                  )}
+                  <span style={{ background:T.blueSoft, color:T.blue, padding:'2px 9px', borderRadius:'20px', fontSize:'11px', fontWeight:700, border:`1px solid ${T.blueBorder}` }}>
+                    Étape {task.stepIndex + 1} : {step.name}
+                  </span>
                 </div>
-                <h2 style={{ margin:'0 0 4px', fontSize:'17px', fontWeight:800, color:T.slate, fontFamily:font }}>{task.workflowName}</h2>
-                <p style={{ margin:'0 0 2px', fontSize:'13px', color:isUrgent?T.red:T.blue, fontWeight:600 }}>Étape {task.stepIndex+1} : {step.name}</p>
-                {step.description&&<p style={{ margin:0, fontSize:'12px', color:T.slateL }}>{step.description}</p>}
-              </div>
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'6px', flexShrink:0 }}>
-                <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', background:T.blueSoft, color:'#1D4ED8', padding:'4px 11px', borderRadius:'20px', fontSize:'11px', fontWeight:700, border:`1px solid ${T.blueBorder}` }}>
-                  <span style={{ width:'5px', height:'5px', borderRadius:'50%', background:'#3B82F6' }}/>En attente
-                </span>
-                {task.dueDate&&<span style={{ fontSize:'11px', color:isUrgent?T.red:T.slateM, fontWeight:600, display:'flex', alignItems:'center', gap:'4px' }}><IClock/> {new Date(task.dueDate).toLocaleDateString('fr-FR')}</span>}
-              </div>
-            </div>
-
-            <div style={{ padding:'20px 24px' }}>
-              {/* Step0 data */}
-              {task.step0Fields?.filter(f=>f.data!==null&&f.data!==undefined&&f.data!=='').length>0&&(
-                <div style={{ background:'#F0F9FF', borderRadius:'10px', padding:'14px 18px', marginBottom:'16px', border:'1.5px solid #BAE6FD' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
-                    <IUser/><p style={{ margin:0, fontSize:'11px', fontWeight:800, color:'#0369A1', textTransform:'uppercase', letterSpacing:'0.06em' }}>Données soumises par l'employé</p>
-                  </div>
-                  {task.step0Fields.filter(f=>f.data!==null&&f.data!==undefined&&f.data!=='').map(f => {
-                    if (f.type==='table'&&Array.isArray(f.data)&&f.data.length>0) {
-                      const cols=f.columns||[];
-                      return (<div key={f.id} style={{ marginBottom:'10px' }}><p style={{ margin:'0 0 6px', fontSize:'12px', fontWeight:700, color:'#374151' }}>{f.label}</p><div style={{ border:'1.5px solid #BAE6FD', borderRadius:'8px', overflow:'hidden' }}><div style={{ display:'grid', gridTemplateColumns:cols.map(()=>'1fr').join(' '), gap:'8px', padding:'6px 10px', background:'#E0F2FE' }}>{cols.map(c=><span key={c.id} style={{ fontSize:'11px', fontWeight:700, color:'#0369A1' }}>{c.label}</span>)}</div>{f.data.map((row,i)=><div key={i} style={{ display:'grid', gridTemplateColumns:cols.map(()=>'1fr').join(' '), gap:'8px', padding:'8px 10px', background:i%2===0?'#fff':'#F8FAFC' }}>{cols.map(c=><span key={c.id} style={{ fontSize:'13px', color:T.slate }}>{row[c.id]??'—'}</span>)}</div>)}</div></div>);
-                    }
-                    return (<div key={f.id} style={{ display:'flex', gap:'8px', marginBottom:'5px', alignItems:'flex-start' }}><span style={{ fontSize:'12px', fontWeight:700, color:T.slateM, minWidth:'130px', flexShrink:0 }}>{f.label} :</span><span style={{ fontSize:'13px', color:T.slate }}>{typeof f.data==='boolean'?(f.data?'✓ Oui':'✗ Non'):String(f.data)}</span></div>);
-                  })}
+                <h3 style={{ margin:'0 0 2px', fontSize:'15px', fontWeight:700, color:T.slate, fontFamily:font }}>{task.workflowName}</h3>
+                <div style={{ display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap' }}>
+                  {task.dueDate && (
+                    <span style={{ fontSize:'12px', color:isUrgent ? T.red : T.slateM, fontWeight:600, display:'flex', alignItems:'center', gap:'4px' }}>
+                      <IClock/> {new Date(task.dueDate).toLocaleDateString('fr-FR')}
+                    </span>
+                  )}
+                  {fieldCount > 0 && (
+                    <span style={{ fontSize:'11px', color:T.slateM }}>📝 {fieldCount} champ{fieldCount > 1 ? 's' : ''}</span>
+                  )}
+                  {checkCount > 0 && (
+                    <span style={{ fontSize:'11px', color:T.slateM }}>✅ {checkCount} tâche{checkCount > 1 ? 's' : ''}</span>
+                  )}
                 </div>
-              )}
-
-              {/* History */}
-              {task.history?.length>0&&(
-                <div style={{ background:'#F8FAFC', borderRadius:'10px', padding:'14px 18px', marginBottom:'16px', border:`1.5px solid ${T.border}` }}>
-                  <p style={{ margin:'0 0 10px', fontSize:'11px', fontWeight:800, color:T.slateM, textTransform:'uppercase', letterSpacing:'0.06em' }}>Historique</p>
-                  {task.history.map((h,i)=>(
-                    <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:'10px', marginBottom:i<task.history.length-1?'8px':0 }}>
-                      <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:h.action?.includes('completed')?T.green:h.action?.includes('rejected')?T.red:T.blue, flexShrink:0, marginTop:'5px' }}/>
-                      <div>
-                        <span style={{ fontSize:'12px', color:'#374151', fontWeight:700 }}>{h.byName}</span>
-                        <span style={{ fontSize:'12px', color:T.slateM, marginLeft:'6px' }}>{h.action==='workflow_started'?'a démarré':h.action?.includes('completed')?'a validé':h.action?.includes('rejected')?'a rejeté':h.action}</span>
-                        {h.stepName&&<span style={{ fontSize:'12px', color:T.slateL }}> — {h.stepName}</span>}
-                        {h.comment&&<p style={{ margin:'2px 0 0', fontSize:'11px', color:T.slateM, fontStyle:'italic' }}>"{h.comment}"</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Form */}
-              {hasForm&&(
-                <div style={{ background:'#F8FAFC', borderRadius:'10px', padding:'18px', marginBottom:'16px', border:`1.5px solid ${T.border}` }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
-                    <span style={{ background:T.blue, color:'#fff', padding:'3px 9px', borderRadius:'6px', fontSize:'11px', fontWeight:800, letterSpacing:'0.05em' }}>FORMULAIRE</span>
-                    <span style={{ fontSize:'13px', fontWeight:600, color:T.slate }}>Remplissez les champs requis</span>
-                  </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:'0 20px' }}>
-                    {step.form.fields.map(field=>renderField(field,wfId,task))}
-                  </div>
-                </div>
-              )}
-
-              {/* Checklist */}
-              {hasCheck&&(
-                <div style={{ background:'#F8FAFC', borderRadius:'10px', padding:'18px', marginBottom:'16px', border:`1.5px solid ${T.border}` }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
-                    <span style={{ background:'#7C3AED', color:'#fff', padding:'3px 9px', borderRadius:'6px', fontSize:'11px', fontWeight:800, letterSpacing:'0.05em' }}>CHECKLIST</span>
-                    <span style={{ fontSize:'13px', fontWeight:600, color:T.slate }}>{checks.filter(i=>i.checked).length}/{checks.length} éléments</span>
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:'7px' }}>
-                    {checks.map((item,i)=>(
-                      <div key={item.id||i} onClick={()=>setChecklists(prev=>{const u=[...(prev[wfId]||[])];u[i]={...u[i],checked:!u[i].checked};return{...prev,[wfId]:u};})}
-                        style={{ display:'flex', alignItems:'center', gap:'12px', cursor:'pointer', padding:'10px 14px', borderRadius:'9px', background:item.checked?T.greenSoft:'#fff', border:`1.5px solid ${item.checked?T.greenBorder:T.border}`, userSelect:'none', transition:'all .15s' }}>
-                        <div style={{ width:'20px', height:'20px', borderRadius:'6px', border:`2px solid ${item.checked?T.green:'#D1D5DB'}`, background:item.checked?T.green:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'#fff' }}>
-                          {item.checked&&<ICheck/>}
-                        </div>
-                        <span style={{ fontSize:'14px', fontWeight:600, color:item.checked?'#166534':'#374151', textDecoration:item.checked?'line-through':'none', flex:1 }}>{item.label}</span>
-                        {item.required&&<span style={{ fontSize:'11px', color:item.checked?T.green:T.red, fontWeight:700 }}>{item.checked?'OK':'REQUIS'}</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upload */}
-              <div onClick={()=>fileRefs.current[wfId]?.click()} style={{ background:'#F8FAFC', borderRadius:'10px', border:`2px dashed ${T.border}`, padding:'14px', textAlign:'center', marginBottom:'16px', cursor:'pointer', transition:'all .15s' }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=T.blue;e.currentTarget.style.background=T.blueSoft;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=T.border;e.currentTarget.style.background='#F8FAFC';}}>
-                <input type="file" ref={el=>{fileRefs.current[wfId]=el;}} onChange={e=>onUpload(e,task)} style={{ display:'none' }} accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"/>
-                {uploading===wfId
-                  ?<p style={{ margin:0,color:T.blue,fontWeight:600,fontSize:'13px',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px' }}><ILoader/>Upload en cours…</p>
-                  :<p style={{ margin:0,color:T.slateM,fontWeight:600,fontSize:'13px',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px' }}><IAttach/>Joindre un document</p>
-                }
               </div>
 
-              {/* Comment */}
-              <div style={{ marginBottom:'16px' }}>
-                <label style={{ display:'block', fontWeight:700, color:T.slate, marginBottom:'7px', fontSize:'12px', fontFamily:font, textTransform:'uppercase', letterSpacing:'0.06em' }}>Commentaire <span style={{ color:T.slateL, fontWeight:400, textTransform:'none', fontSize:'11px' }}>(obligatoire pour rejeter)</span></label>
-                <textarea value={comments[wfId]||''} onChange={e=>setComments(prev=>({...prev,[wfId]:e.target.value}))} rows={2} placeholder="Votre commentaire…"
-                  style={{ width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:'9px', border:`1.5px solid ${T.border}`, fontSize:'14px', resize:'vertical', fontFamily:font, outline:'none', color:T.slate }}/>
-              </div>
-
-              {/* Actions */}
-              <div style={{ display:'flex', gap:'12px' }}>
-                {step.claims?.canValidate!==false&&(
-                  <button onClick={()=>onComplete(task)} disabled={!!saving} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', padding:'13px', borderRadius:'10px', background:isSaving?'#E2E8F0':T.green, color:isSaving?'#94A3B8':'#fff', border:'none', fontWeight:700, cursor:saving?'not-allowed':'pointer', fontSize:'14px', fontFamily:font, boxShadow:isSaving?'none':`0 4px 14px ${T.green}40` }}>
-                    {isSaving?<><ILoader/>En cours…</>:<><ICheck/>Valider l'étape</>}
-                  </button>
-                )}
-                {step.claims?.canReject!==false&&(
-                  <button onClick={()=>onReject(task)} disabled={!!saving} style={{ display:'flex', alignItems:'center', gap:'7px', padding:'13px 24px', borderRadius:'10px', background:T.redSoft, color:T.red, border:`1.5px solid ${T.redBorder}`, fontWeight:700, cursor:saving?'not-allowed':'pointer', fontSize:'14px', fontFamily:font }}>
-                    <IX/>Rejeter
-                  </button>
-                )}
+              {/* Flèche */}
+              <div style={{ width:'32px', height:'32px', borderRadius:'8px', background:T.blueSoft, border:`1.5px solid ${T.blueBorder}`, display:'flex', alignItems:'center', justifyContent:'center', color:T.blue, flexShrink:0 }}>
+                <IArrowR/>
               </div>
             </div>
           </div>
@@ -533,7 +430,7 @@ const EmployeeDashboard = () => {
     catch(err){showMsg('ERREUR upload : '+(err.response?.data?.message||err.message));}finally{setUploading(null);e.target.value='';}
   };
 
-  const taskProps={tasks,loading,onComplete:handleComplete,onReject:handleReject,saving,formValues,setFormValues,checklists,setChecklists,comments,setComments,fileRefs,onUpload:handleUpload,uploading,msg};
+  const taskProps={tasks,loading,navigate,onComplete:handleComplete,onReject:handleReject,saving,formValues,setFormValues,checklists,setChecklists,comments,setComments,fileRefs,onUpload:handleUpload,uploading,msg};
 
   if(loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:T.bg, fontFamily:font }}>

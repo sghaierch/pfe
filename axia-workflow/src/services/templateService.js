@@ -11,7 +11,7 @@ const templateService = {
     const res = await API.get(`/workflow-templates/${id}`);
     return res.data;
   },
-
+  archive: async (id) => API.patch(`/workflow-templates/${id}/archive`).then(r => r.data),
   create: async (data) => {
     const res = await API.post('/workflow-templates', data);
     return res.data;

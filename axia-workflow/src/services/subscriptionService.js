@@ -21,6 +21,7 @@ const subscriptionService = {
       throw error.response?.data || { message: 'Erreur récupération' };
     }
   },
+  archive: async (id) => API.patch(`/subscriptions/${id}/archive`).then(r => r.data),
 
   // ✅ SUPERADMIN — abonnements d'un tenant spécifique
   getByTenant: async (tenantId) => {

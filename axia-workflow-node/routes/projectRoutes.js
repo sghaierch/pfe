@@ -6,7 +6,7 @@ const {
   getProject,
   createProject,
   updateProject,
-  deleteProject,
+  archiveProject,
 } = require("../controllers/projectController");
 
 router.use(protectorMW);
@@ -15,6 +15,6 @@ router.get("/",       getAllProjects);
 router.get("/:id",    getProject);
 router.post("/",      permitMW("company_admin", "manager"), createProject);
 router.patch("/:id",  permitMW("company_admin", "manager"), updateProject);
-router.delete("/:id", permitMW("company_admin"), deleteProject);
+router.patch("/:id/archive", permitMW("company_admin"), archiveProject);
 
 module.exports = router;

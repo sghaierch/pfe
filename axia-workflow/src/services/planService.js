@@ -11,6 +11,10 @@ const planService = {
     const res = await API.get('/plans');
     return res.data;
   },
+  archive: async (id) => {
+  const res = await API.patch(`/plans/${id}/archive`);
+  return res.data;
+  },
   getById: async (id) => {
     const res = await API.get(`/plans/${id}`);
     return res.data;

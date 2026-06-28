@@ -8,7 +8,7 @@ const {
   approveSubscription,
   rejectSubscription,
   getPlans,
-  deleteSubscription,
+  archiveSubscription,
   checkExpiry,
   createPaymentIntent, 
   stripeWebhook
@@ -29,6 +29,6 @@ router.get("/",                   getAllSubscriptions);
 router.patch("/:id/approve",      approveSubscription);
 router.patch("/:id/reject",       rejectSubscription);
 router.patch("/:id/status",       updateSubscriptionStatus);
-router.delete("/:id",             deleteSubscription);
+router.patch("/:id/archive",      archiveSubscription);
 
 module.exports = router;

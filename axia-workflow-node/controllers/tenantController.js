@@ -298,16 +298,27 @@ exports.reactivateTenant = async (req, res) => {
   }
 };
 
-// ── DELETE supprimer ──────────────────────────────────────────────────────────
-exports.deleteTenant = async (req, res) => {
+exports.archiveTenant = async (req, res) => {
   try {
     const tenant = await Tenant.findById(req.params.id);
-    if (!tenant) return res.status(404).json({ status: "fail", message: "Tenant non trouvé" });
+    if (!tenant) return res.status(404).json({ status: 'fail', message: 'Entreprise non trouvée' });
 
-    await Tenant.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: "success", message: "Tenant supprimé (la DB MongoDB reste intacte)" });
+    if (!['suspended', 'expired', 'rejected', 'cancelled'].includes(tenant.status)) {
+      return res.status(400).json({ 
+        status: 'fail', 
+        message: `Impossible d'archiver — l'entreprise est "${tenant.status}". Suspendez-la d'abord.` 
+      });
+    }
+
+    await Tenant.findByIdAndUpdate(req.params.id, { 
+      status: 'cancelled',
+      isActive: false,
+      archivedAt: new Date(),
+    });
+
+    res.status(200).json({ status: 'success', message: 'Entreprise archivée' });
   } catch (err) {
-    res.status(500).json({ status: "fail", message: err.message });
+    res.status(500).json({ status: 'fail', message: err.message });
   }
 };
 

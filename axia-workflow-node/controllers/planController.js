@@ -86,12 +86,24 @@ exports.togglePlanStatus = async (req, res) => {
   }
 };
 
-// DELETE supprimer un plan
-exports.deletePlan = async (req, res) => {
+// ARCHIVE plan
+exports.archivePlan = async (req, res) => {
   try {
-    const plan = await Plan.findByIdAndDelete(req.params.id);
+    const Subscription = require('../models/subscriptionModel');
+    const active = await Subscription.findOne({ plan: req.params.id, status: 'active' });
+    if (active) {
+      return res.status(400).json({
+        status: 'fail',
+        message: "Impossible d'archiver — des entreprises utilisent ce plan activement"
+      });
+    }
+    const plan = await Plan.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false, archivedAt: new Date() },
+      { new: true }
+    );
     if (!plan) return res.status(404).json({ status: "fail", message: "Plan non trouvé" });
-    res.status(200).json({ status: "success", message: "Plan supprimé" });
+    res.status(200).json({ status: "success", message: "Plan archivé" });
   } catch (err) {
     res.status(400).json({ status: "fail", message: err.message });
   }

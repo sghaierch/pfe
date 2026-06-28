@@ -217,17 +217,38 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// ── DELETE USER ────────────────────────────────────────────────────
-exports.deleteUser = async (req, res) => {
+// ── ARCHIVE USER ──────────────────────────────────────────────────
+exports.archiveUser = async (req, res) => {
   try {
     const { User } = getTenantModels(req);
 
     if (req.params.id === req.user._id.toString()) {
-      return res.status(400).json({ status: 'fail', message: 'Vous ne pouvez pas supprimer votre propre compte' });
+      return res.status(400).json({ status: 'fail', message: 'Vous ne pouvez pas archiver votre propre compte' });
     }
 
-    await User.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: 'success', message: 'Utilisateur supprimé' });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ status: 'fail', message: 'Utilisateur non trouvé' });
+
+    // Vérifier tâches en cours
+    const conn = req.tenantConnection;
+    const workflowSchema = require('../models/workflowModel').schema;
+    const Workflow = conn.models['Workflow'] || conn.model('Workflow', workflowSchema);
+    const activeTasks = await Workflow.countDocuments({
+      steps: { $elemMatch: { assignedTo: req.params.id, status: 'in_progress' } }
+    });
+    if (activeTasks > 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Impossible d'archiver — ${activeTasks} tâche(s) en cours assignée(s) à cet utilisateur`
+      });
+    }
+
+    await User.findByIdAndUpdate(req.params.id, {
+      isActive: false,
+      archivedAt: new Date(),
+    });
+
+    res.status(200).json({ status: 'success', message: 'Utilisateur archivé' });
   } catch (err) {
     res.status(500).json({ status: 'fail', message: err.message });
   }
@@ -436,12 +457,32 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// ── DELETE POST ────────────────────────────────────────────────────
-exports.deletePost = async (req, res) => {
+// ── ARCHIVE POST ──────────────────────────────────────────────────
+exports.archivePost = async (req, res) => {
   try {
     const Post = getPostModel(req);
-    await Post.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: 'success', message: 'Poste supprimé' });
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ status: 'fail', message: 'Poste non trouvé' });
+
+    // Vérifier si des utilisateurs actifs ont ce poste
+    const { User } = getTenantModels(req);
+    const usersWithPost = await User.countDocuments({
+      jobTitle: { $regex: new RegExp('^' + post.name.trim() + '$', 'i') },
+      isActive: { $ne: false }
+    });
+    if (usersWithPost > 0) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Impossible d'archiver — ${usersWithPost} utilisateur(s) ont ce poste. Réaffectez-les d'abord.`
+      });
+    }
+
+    await Post.findByIdAndUpdate(req.params.id, {
+      isActive: false,
+      archivedAt: new Date(),
+    });
+
+    res.status(200).json({ status: 'success', message: 'Poste archivé' });
   } catch (err) {
     res.status(500).json({ status: 'fail', message: err.message });
   }

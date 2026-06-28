@@ -390,16 +390,27 @@ exports.updateSubscriptionStatus = async (req, res) => {
   }
 };
 
-// ── DELETE abonnement ─────────────────────────────────────────────────────────
-exports.deleteSubscription = async (req, res) => {
+exports.archiveSubscription = async (req, res) => {
   try {
-    await Subscription.findByIdAndDelete(req.params.id);
-    res.status(200).json({ status: 'success', message: 'Abonnement supprimé' });
+    const sub = await Subscription.findById(req.params.id);
+    if (!sub) return res.status(404).json({ status: 'fail', message: 'Abonnement non trouvé' });
+
+    if (!['pending', 'rejected', 'cancelled', 'expired'].includes(sub.status)) {
+      return res.status(400).json({ 
+        status: 'fail', 
+        message: `Impossible d'archiver un abonnement "${sub.status}" — seuls pending, rejected, cancelled ou expired peuvent être archivés` 
+      });
+    }
+
+    sub.status    = 'cancelled';
+    sub.archivedAt = new Date();
+    await sub.save();
+
+    res.status(200).json({ status: 'success', message: 'Abonnement archivé' });
   } catch (err) {
     res.status(500).json({ status: 'fail', message: err.message });
   }
 };
-
 // ── Vérifier expirations (cron) ───────────────────────────────────────────────
 exports.checkExpiry = async () => {
   try {

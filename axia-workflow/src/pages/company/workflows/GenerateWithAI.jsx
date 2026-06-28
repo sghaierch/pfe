@@ -67,8 +67,13 @@ const GenerateWithAI = () => {
   useEffect(() => {
     departmentService.getAllPosts().then(p=>setPosts(p||[])).catch(()=>setPosts([]));
     API.get('/document-types')
-      .then(r => setDocumentTypes(r.data?.data?.documentTypes?.filter(dt => dt.isActive !== false) || []))
-      .catch(() => {});
+      .then(r => {
+        const all = r.data?.data?.documentTypes || [];
+        // ✅ isActive peut être absent — on garde tout sauf les explicitement inactifs
+        setDocumentTypes(all.filter(dt => dt.isActive !== false));
+        console.log('[GenerateWithAI] documentTypes chargés:', all.length);
+      })
+      .catch(err => console.error('[GenerateWithAI] Erreur chargement types:', err));
   }, []);
 
   const handleGenerate = async () => {
@@ -100,6 +105,9 @@ const GenerateWithAI = () => {
   }));
 
   const handleSave = async () => {
+    if (!docTypeId) { setSavedMsg('ERREUR Veuillez choisir un type de document avant de sauvegarder'); setTimeout(()=>setSavedMsg(''),3000); return; }
+    const invalidSteps = result.steps.filter((s,i) => i > 0 && (!s.assignedPost || !posts.find(p=>p.name===s.assignedPost)));
+    if (invalidSteps.length > 0) { setSavedMsg('ERREUR Étapes sans poste valide : ' + invalidSteps.map(s=>s.name).join(', ')); setTimeout(()=>setSavedMsg(''),4000); return; }
     if (!result) return;
     setSaving(true);
     try {
@@ -111,6 +119,9 @@ const GenerateWithAI = () => {
   };
 
   const handleSaveAndStart = async () => {
+    if (!docTypeId) { setSavedMsg('ERREUR Veuillez choisir un type de document avant de démarrer'); setTimeout(()=>setSavedMsg(''),3000); return; }
+    const invalidSteps = result.steps.filter((s,i) => i > 0 && (!s.assignedPost || !posts.find(p=>p.name===s.assignedPost)));
+    if (invalidSteps.length > 0) { setSavedMsg('ERREUR Étapes sans poste valide : ' + invalidSteps.map(s=>s.name).join(', ')); setTimeout(()=>setSavedMsg(''),4000); return; }
     if (!result) return;
     setStarting(true);
     try {
@@ -199,51 +210,6 @@ const GenerateWithAI = () => {
             </div>
           )}
 
-          {/* ── Type de document ── */}
-          <div style={{ marginTop:'16px' }}>
-            <label style={{ display:'block', fontWeight:700, fontSize:'13px', color:'#374151', marginBottom:'7px' }}>
-              Type de document <span style={{color:'#EF4444'}}>*</span>
-              <span style={{ marginLeft:'8px', fontWeight:400, fontSize:'12px', color:'#94A3B8' }}>Détermine la numérotation automatique des demandes</span>
-            </label>
-            {documentTypes.length === 0 ? (
-              <div style={{ padding:'10px 14px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'9px', fontSize:'13px', color:'#92400E' }}>
-                ⚠️ Aucun type de document — créez-en un dans <strong>Types de documents</strong> d'abord.
-              </div>
-            ) : (
-              <select
-                value={docTypeId}
-                onChange={e => setDocTypeId(e.target.value)}
-                style={{
-                  width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:'9px',
-                  border: docTypeId ? '1.5px solid #2563EB' : '1.5px solid #E2E8F0',
-                  fontSize:'14px', color: docTypeId ? '#0F172A' : '#94A3B8',
-                  outline:'none', background:'#fff', cursor:'pointer',
-                  fontFamily:"'Inter',sans-serif",
-                  boxShadow: docTypeId ? '0 0 0 3px rgba(37,99,235,0.1)' : 'none',
-                  transition:'all 0.15s',
-                }}
-              >
-                <option value="" disabled hidden>— Choisir un type de document —</option>
-                {documentTypes.map(dt => (
-                  <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
-                ))}
-              </select>
-            )}
-            {/* Aperçu numérotation */}
-            {docTypeId && (() => {
-              const sel = documentTypes.find(dt => dt._id === docTypeId);
-              if (!sel) return null;
-              const year = new Date().getFullYear().toString().slice(-2);
-              const ex = `${sel.prefix}${year}-${'1'.padStart(sel.digits, '0')}`;
-              return (
-                <div style={{ marginTop:'8px', padding:'8px 12px', background:'#EFF6FF', borderRadius:'8px', border:'1px solid #BFDBFE', fontSize:'12px', color:'#1D4ED8', fontWeight:600, display:'flex', alignItems:'center', gap:'8px' }}>
-                  <span style={{ fontFamily:'monospace', fontWeight:800 }}>{sel.prefix}</span>
-                  <span>— Numérotation auto · Ex : <strong>{ex}</strong></span>
-                </div>
-              );
-            })()}
-          </div>
-
           <button onClick={handleGenerate} disabled={generating || !description.trim()}
             style={{ marginTop:'18px', width:'100%', padding:'14px', borderRadius:'10px', border:'none', cursor:generating||!description.trim()?'not-allowed':'pointer', fontWeight:700, fontSize:'15px', background:generating||!description.trim()?'#E2E8F0':'linear-gradient(135deg,#2563EB,#7C3AED)', color:generating||!description.trim()?'#94A3B8':'#fff', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', fontFamily:"'Inter',sans-serif", boxShadow:generating||!description.trim()?'none':'0 4px 16px rgba(37,99,235,0.4)', transition:'all 0.2s' }}>
             {generating ? <><IconLoader/> L'IA analyse votre description…</> : <><IconSparkle/> Générer le workflow avec l'IA</>}
@@ -286,9 +252,53 @@ const GenerateWithAI = () => {
                   <span key={i} style={{ background:'rgba(255,255,255,0.18)', padding:'4px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:600 }}>{t}</span>
                 ))}
               </div>
+
             </div>
 
             {/* Access section */}
+            {/* ── Bloc Type de document — style identique à Accès employés ── */}
+            <div style={{ background:'#fff', borderRadius:'14px', border: docTypeId ? '1.5px solid #BBF7D0' : '1.5px solid #FECACA', padding:'18px 22px', marginBottom:'16px', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
+                <div style={{ width:'30px', height:'30px', borderRadius:'8px', background: docTypeId ? '#F0FDF4' : '#FEF2F2', border: docTypeId ? '1px solid #BBF7D0' : '1px solid #FECACA', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'15px' }}>
+                  📄
+                </div>
+                <div style={{ flex:1 }}>
+                  <p style={{ margin:0, fontWeight:700, fontSize:'14px', color:'#0F172A' }}>Type de document <span style={{color:'#EF4444'}}>*</span></p>
+                  <p style={{ margin:0, fontSize:'12px', color:'#64748B' }}>Détermine la numérotation automatique des demandes</p>
+                </div>
+                {docTypeId && (() => {
+                  const sel = documentTypes.find(dt => dt._id === docTypeId);
+                  if (!sel) return null;
+                  return (
+                    <span style={{ fontFamily:'monospace', background:'#EFF6FF', color:'#2563EB', padding:'4px 12px', borderRadius:'20px', fontSize:'12px', fontWeight:800, border:'1.5px solid #BFDBFE' }}>
+                      {sel.prefix}
+                    </span>
+                  );
+                })()}
+              </div>
+              {documentTypes.length === 0 ? (
+                <div style={{ padding:'10px 14px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'9px', fontSize:'13px', color:'#92400E' }}>
+                  ⚠️ Aucun type de document actif — créez-en un dans <strong>Types de documents</strong> d'abord.
+                </div>
+              ) : (
+                <select
+                  value={docTypeId}
+                  onChange={e => setDocTypeId(e.target.value)}
+                  style={{ width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:'9px', border: docTypeId ? '1.5px solid #16A34A' : '1.5px solid #E2E8F0', fontSize:'14px', color: docTypeId ? '#0F172A' : '#94A3B8', outline:'none', background:'#fff', cursor:'pointer', fontFamily:"'Inter',sans-serif", fontWeight: docTypeId ? 600 : 400, transition:'all 0.15s' }}
+                >
+                  <option value="" disabled hidden>— Choisir un type de document —</option>
+                  {documentTypes.map(dt => (
+                    <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
+                  ))}
+                </select>
+              )}
+              {!docTypeId && (
+                <p style={{ margin:'8px 0 0', fontSize:'12px', color:'#EF4444', fontWeight:600, display:'flex', alignItems:'center', gap:'5px' }}>
+                  ⚠️ Obligatoire — sans type de document, aucun numéro ne sera généré
+                </p>
+              )}
+            </div>
+
             <div style={{ background:'#fff', borderRadius:'14px', border:'1.5px solid #BFDBFE', padding:'18px 22px', marginBottom:'16px' }}>
               <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px' }}>
                 <div style={{ width:'30px', height:'30px', borderRadius:'8px', background:`${B}15`, border:`1.5px solid #BFDBFE`, display:'flex', alignItems:'center', justifyContent:'center', color:B }}><IconUsers/></div>
@@ -356,11 +366,17 @@ const GenerateWithAI = () => {
                           <IconUsers/> {allowedPosts.length > 0 ? allowedPosts.join(', ') + ' (soumission)' : 'Tous les employés (soumission)'}
                         </div>
                       ) : (
-                        <SSelect value={step.assignedPost||''} onChange={e=>updateStep(si,'assignedPost',e.target.value)}>
-                          <option value="">— Choisir un poste —</option>
-                          {posts.map(p=><option key={p._id} value={p.name}>{p.name}{p.departmentName?` (${p.departmentName})`:''}</option>)}
-                          {step.assignedPost && !posts.find(p=>p.name===step.assignedPost) && <option value={step.assignedPost}>{step.assignedPost} (suggéré par l'IA)</option>}
-                        </SSelect>
+                        <div>
+                          {step.assignedPost && !posts.find(p => p.name === step.assignedPost) && (
+                            <div style={{ marginBottom:'8px', padding:'8px 12px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'8px', fontSize:'12px', color:'#92400E', display:'flex', alignItems:'center', gap:'7px' }}>
+                              ⚠️ <span>Le poste <strong>"{step.assignedPost}"</strong> suggéré par l'IA n'existe pas — choisissez un poste réel.</span>
+                            </div>
+                          )}
+                          <SSelect value={posts.find(p=>p.name===step.assignedPost) ? step.assignedPost : ''} onChange={e=>updateStep(si,'assignedPost',e.target.value)}>
+                            <option value="">— Choisir un poste —</option>
+                            {posts.map(p=><option key={p._id} value={p.name}>{p.name}{p.departmentName?` (${p.departmentName})`:''}</option>)}
+                          </SSelect>
+                        </div>
                       )}
                     </div>
 
