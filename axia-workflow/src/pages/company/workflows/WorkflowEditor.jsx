@@ -636,12 +636,20 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
               onChange('assignedToName', '');
               onChange('assignedRole', '');
             }}
-            style={{ width: '100%', padding: '7px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }}
+            style={{
+              width: '100%', padding: '9px 12px', borderRadius: '8px',
+              border: node.assignedPost ? '1.5px solid #2563EB' : '1.5px solid #E2E8F0',
+              fontSize: '13px', color: node.assignedPost ? '#0F172A' : '#94A3B8',
+              background: '#fff', cursor: 'pointer', outline: 'none',
+              fontFamily: "'Inter',sans-serif",
+              boxShadow: node.assignedPost ? '0 0 0 3px rgba(37,99,235,0.1)' : 'none',
+              transition: 'all 0.15s',
+            }}
           >
-            <option value="">-- Choisir un poste --</option>
+            <option value="" disabled hidden>-- Choisir un poste --</option>
             {posts.map((p) => (
               <option key={p._id} value={p.name}>
-                {p.name} {p.departmentName ? '(' + p.departmentName + ')' : ''}
+                {p.name}{p.departmentName ? ' · ' + p.departmentName : ''}
               </option>
             ))}
           </select>
@@ -1058,7 +1066,7 @@ form: {
 
       {/* ── Topbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', height: '56px', background: '#1e293b', color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ background: '#2563EB', padding: '6px 14px', borderRadius: '6px', fontWeight: 700, fontSize: '14px' }}>
             Axia Workflow
           </div>
@@ -1067,28 +1075,26 @@ form: {
           </span>
 
           {/* ✅ Sélecteur type de document — déroulant */}
-          <select
-            value={docType}
-            onChange={e => setDocType(e.target.value)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '7px',
-              border: docType ? '1.5px solid #3b82f6' : '1.5px solid #475569',
-              background: docType ? '#1e3a5f' : '#334155',
-              color: docType ? '#93c5fd' : '#94a3b8',
-              fontSize: '13px',
-              fontWeight: docType ? 700 : 400,
-              cursor: 'pointer',
-              fontFamily: "'Inter',sans-serif",
-              minWidth: '180px',
-              outline: 'none',
-            }}
-          >
-            <option value="" disabled hidden>📄 Type de document…</option>
-            {docTypes.map(dt => (
-              <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
-            ))}
-          </select>
+          <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'#0f172a', padding:'4px 4px 4px 10px', borderRadius:'8px', border: docType ? '1px solid #3b82f6' : '1px solid #334155' }}>
+            <span style={{ fontSize:'11px', color:'#64748b', whiteSpace:'nowrap', fontWeight:600 }}>📄</span>
+            <select
+              value={docType}
+              onChange={e => setDocType(e.target.value)}
+              style={{
+                padding: '4px 8px', borderRadius: '6px',
+                border: 'none', background: 'transparent',
+                color: docType ? '#93c5fd' : '#64748b',
+                fontSize: '12px', fontWeight: docType ? 700 : 400,
+                cursor: 'pointer', fontFamily: "'Inter',sans-serif",
+                minWidth: '150px', outline: 'none',
+              }}
+            >
+              <option value="" disabled hidden>Type de document…</option>
+              {docTypes.map(dt => (
+                <option key={dt._id} value={dt._id} style={{ background:'#1e293b', color:'#e2e8f0' }}>{dt.prefix} — {dt.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
