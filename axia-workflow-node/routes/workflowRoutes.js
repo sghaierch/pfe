@@ -94,10 +94,10 @@ router.get("/templates/active",               getActiveTemplates);   // ✅ work
 router.get("/templates/doc-types",            getDocTypesForEmployee);   // ✅ AJOUTER
 router.get("/templates/by-doctype/:docTypeId", getWorkflowsByDocType);   // ✅ AJOUTER
 router.get("/templates/doc-types",            getDocTypesForEmployee); // ✅ types de documents accessibles par poste
-router.get("/templates/by-doctype/:docTypeId", getWorkflowsByDocType); // ✅ workflows d'un type pour un employé
-router.get("/global/visible",                 getGlobalWorkflows);   // ✅ CORRIGÉ : avant /:id
-router.get("/audit-log",                      permitMW("company_admin", "manager"), getAuditLog); // ✅
-router.get("/users/list",                     getTenantUsers);       // ✅ CORRIGÉ : avant /:id
+router.get("/templates/by-doctype/:docTypeId", getWorkflowsByDocType);
+router.get("/global/visible",                 getGlobalWorkflows);   
+router.get("/audit-log",                      permitMW("company_admin", "manager"), getAuditLog); 
+router.get("/users/list",                     getTenantUsers);       
 
 // ── Routes dynamiques /:id (APRÈS les statiques) ─────────────────────────────
 router.get("/:id/document-chain",             getDocumentChain);
