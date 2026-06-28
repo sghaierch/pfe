@@ -188,9 +188,7 @@ const findEmployeeStepIndex = (steps = []) => {
 const EmployeeSubmitRequest = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // ✅ Lit workflowId (nouveau) ou template (ancien) pour compatibilité
-  const workflowId = searchParams.get('workflowId') || searchParams.get('template');
-  const templateId = workflowId; // alias pour le reste du code
+  const templateId = searchParams.get('template');
   const { user } = useAuth();
 
   const [workflow,    setWorkflow]    = useState(null);
@@ -199,7 +197,6 @@ const EmployeeSubmitRequest = () => {
   const [saving,      setSaving]      = useState(false);
   const [msg,         setMsg]         = useState('');
   const [success,     setSuccess]     = useState(false);
-  const [docNumber,   setDocNumber]   = useState('');
   const [,            setProjectId]   = useState('');
   const [dueDate]                     = useState('');
   const [fieldValues, setFieldValues] = useState({});
@@ -212,16 +209,26 @@ const EmployeeSubmitRequest = () => {
  // ── Chargement du template ────────────────────────────────────────────────
 useEffect(() => {
   if (!templateId) {
-    setMsg('Aucun identifiant de workflow fourni.');
+    setMsg('Aucun identifiant de template fourni.');
     setLoading(false);
     return;
   }
 
   const load = async () => {
     try {
-      // ✅ Charge directement le workflow par son ID
+      // === NOUVELLE LOGIQUE ===
+      const docTypeRes = await API.get(`/document-types/${templateId}`);
+      const docType = docTypeRes.data?.data?.documentType || docTypeRes.data?.documentType;
+      setDocType(docType);  // ← déjà déclaré dans ton state mais commenté
+      if (!docType) throw new Error('Type de document introuvable');
+
+      const workflowId = docType.defaultWorkflow;
+
+      if (!workflowId) throw new Error('Aucun workflow par défaut configuré pour ce type de document');
+
+      // Chargement du workflow réel
       const [wfRes, projRes] = await Promise.all([
-        workflowService.getById(workflowId),
+        workflowService.getById(workflowId),           // ← On passe workflowId au lieu de templateId
         projectService?.getAll
           ? projectService.getAll()
           : Promise.resolve({ data: { projects: [] } }),
@@ -229,15 +236,11 @@ useEffect(() => {
 
       const wf = wfRes?.data?.workflow || wfRes?.workflow || null;
       if (!wf) throw new Error('Workflow introuvable');
+
       if (!wf.isTemplate) throw new Error("Ce workflow n'est pas un template disponible");
       if (wf.status !== 'active') throw new Error("Ce type de demande n'est plus disponible");
 
       setWorkflow(wf);
-
-      // ✅ Le type de document est populé dans le workflow
-      if (wf.docType && typeof wf.docType === 'object') {
-        setDocType(wf.docType);
-      }
 
       const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
       setProjects(projs);
@@ -265,6 +268,9 @@ useEffect(() => {
 
       setFieldValues(init);
 
+      // Optionnel : garder le docType pour usage ultérieur
+       setDocType(docType);
+
     } catch (err) {
       console.error(err);
       setMsg('Erreur : ' + (err.response?.data?.message || err.message));
@@ -274,7 +280,7 @@ useEffect(() => {
   };
 
   load();
-}, [workflowId, user]);
+}, [templateId, user]);
 
   // ── Champs du formulaire employé ─────────────────────────────────────────
   const empStepIndex = useMemo(() => {
@@ -370,11 +376,11 @@ useEffect(() => {
 
       const payload = {
         name:        workflow.name + ' — ' + new Date().toLocaleDateString('fr-FR'),
-        docTypeId: workflowId,
+        docTypeId: templateId,
         description: workflow.description || '',
         ...(resolvedProjectId ? { project: resolvedProjectId } : {}),
         dueDate:     dueDate || null,
-        templateRef: workflowId,
+        templateRef: templateId,
         steps:       stepsPayload,
         isTemplate:  false,
         visibility:  'global',
@@ -388,7 +394,7 @@ useEffect(() => {
           (f.label || '').toLowerCase().includes('dép') ||
           (f.label || '').toLowerCase().includes('depot')
         );
-        payload.docType      = docType._id || docType.prefix;
+        payload.docType      = docType.prefix;
         payload.documentData = {
           demandeur:   demandeurValue,
           depot:       depotField ? (fieldValues[depotField.id] || '') : '',
@@ -400,14 +406,11 @@ useEffect(() => {
 
       // ── Étape 1 : créer l'instance ────────────────────────────────────────
       const createRes  = await workflowService.create(payload);
-      const workflowId =
+      const createdWorkflowId =
         createRes?.data?.workflow?._id ||
         createRes?.data?._id           ||
         createRes?.workflow?._id;
-      if (!workflowId) throw new Error('Workflow créé mais ID introuvable dans la réponse');
-      // ✅ Récupérer le docNumber généré par le backend
-      const generatedDocNumber = createRes?.data?.workflow?.docNumber || '';
-      if (generatedDocNumber) setDocNumber(generatedDocNumber);
+      if (!createdWorkflowId) throw new Error('Workflow créé mais ID introuvable dans la réponse');
 
       // ── Étape 2 : démarrer l'instance ─────────────────────────────────────
       await workflowService.startInstance(workflowId);
@@ -418,7 +421,7 @@ useEffect(() => {
       empFields.forEach(f => {
         if (f.data !== null && f.data !== undefined) formDataForEmpStep[f.id] = f.data;
       });
-      await workflowService.completeStep(workflowId, {
+      await workflowService.completeStep(createdWorkflowId, {
         comment:  "Demande soumise par l'employé",
         formData: formDataForEmpStep,
       });
@@ -429,7 +432,7 @@ useEffect(() => {
         await Promise.all(attachments.map(file => {
           const fd = new FormData();
           fd.append('file', file);
-          fd.append('workflowId', workflowId);
+          fd.append('workflowId', createdWorkflowId);
           fd.append('stepIndex', String(empStepIndex));
           return workflowService.uploadDocument(fd).catch(() => null); // non bloquant
         }));
@@ -466,11 +469,11 @@ useEffect(() => {
           <i className="ri-check-line"></i>
         </div>
         <h2 style={{ margin: '0 0 8px', color: '#0F172A', fontSize: '20px', fontWeight: '700' }}>Demande soumise !</h2>
-  {docNumber && (
-    <div style={{ background: '#DBEAFE', padding: '14px 24px', borderRadius: '12px', margin: '16px 0', border: '1.5px solid #BFDBFE' }}>
-      <p style={{ margin: '0 0 4px', fontSize: '11px', color: '#3B82F6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Numéro de demande</p>
-      <p style={{ margin: 0, fontSize: '26px', fontWeight: 900, fontFamily: 'monospace', color: '#1D4ED8', letterSpacing: '2px' }}>
-        {docNumber}
+  {docType && (
+    <div style={{ background: '#dbeafe', padding: '10px 20px', borderRadius: '10px', margin: '12px 0' }}>
+      <p style={{ margin: '0 0 2px', fontSize: '11px', color: '#475569' }}>Numéro de document</p>
+      <p style={{ margin: 0, fontSize: '20px', fontWeight: 800, fontFamily: 'monospace', color: '#2563eb' }}>
+        {docType.prefix}{new Date().getFullYear().toString().slice(-2)}-{String((docType.counter || 0) + 1).padStart(docType.digits || 3, '0')}
       </p>
     </div>
   )}
@@ -497,18 +500,18 @@ useEffect(() => {
           <i className="ri-arrow-left-line"></i> Retour
         </button>
 
-        {/* ── HEADER AMÉLIORÉ ── */}
         <div style={{ marginBottom: '28px' }}>
-          {docType && (
-            <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'linear-gradient(135deg, #EFF6FF, #DBEAFE)', border:'1.5px solid #BFDBFE', padding:'6px 14px', borderRadius:'20px', marginBottom:'14px' }}>
-              <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:'13px', color:'#1D4ED8', letterSpacing:'1px', background:'#BFDBFE', padding:'2px 8px', borderRadius:'6px' }}>{docType.prefix}</span>
-              <span style={{ fontSize:'13px', fontWeight:600, color:'#1D4ED8' }}>{docType.name}</span>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ margin: '0 0 6px', fontSize: '24px', fontWeight: '800', color: '#0F172A', letterSpacing: '-0.02em' }}>{workflow.name}</h1>
+              {workflow.description && <p style={{ margin: 0, color: '#475569', fontSize: '14px' }}>{workflow.description}</p>}
             </div>
-          )}
-          <h1 style={{ margin:'0 0 8px', fontSize:'26px', fontWeight:900, color:'#0F172A', letterSpacing:'-0.5px' }}>{workflow.name}</h1>
-          {workflow.description && (
-            <p style={{ margin:0, color:'#64748B', fontSize:'14px', lineHeight:1.6, maxWidth:'600px' }}>{workflow.description}</p>
-          )}
+            {docType && (
+              <span style={{ background: '#dbeafe', color: '#2563eb', padding: '6px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <i className="ri-file-text-line"></i> {docType.name}
+              </span>
+            )}
+          </div>
         </div>
 
         {msg && (
@@ -524,28 +527,22 @@ useEffect(() => {
               <span style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Circuit d'approbation</span>
               <span style={{ ...S.badge('#dbeafe', '#2563eb') }}>{approvalSteps.length} étape{approvalSteps.length > 1 ? 's' : ''}</span>
             </div>
-            <div style={{ padding:'20px 24px', display:'flex', alignItems:'center', gap:'0', flexWrap:'wrap' }}>
+            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '0', flexWrap: 'wrap', overflowX: 'auto' }}>
               {approvalSteps.map((step, i) => (
                 <React.Fragment key={i}>
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'8px', minWidth:'100px', padding:'4px 8px' }}>
-                    <div style={{ width:'42px', height:'42px', borderRadius:'50%', background:`linear-gradient(135deg, #2563EB, #3B82F6)`, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:'15px', boxShadow:'0 4px 12px rgba(37,99,235,0.3)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', minWidth: '90px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '13px' }}>
                       {i + 1}
                     </div>
-                    <div style={{ textAlign:'center' }}>
-                      <p style={{ margin:'0 0 2px', fontSize:'12px', fontWeight:700, color:'#0F172A', lineHeight:1.3 }}>{step.name}</p>
-                      {(step.assignedPostName || step.assignedPost) && (
-                        <span style={{ display:'inline-block', background:'#EFF6FF', color:'#2563EB', padding:'2px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:700, border:'1px solid #BFDBFE' }}>
-                          {step.assignedPostName || step.assignedPost}
-                        </span>
-                      )}
-                    </div>
+                    <span style={{ fontSize: '12px', color: '#0F172A', fontWeight: '600', textAlign: 'center', lineHeight: '1.3', maxWidth: '80px' }}>{step.name}</span>
+                    {(step.assignedPostName || step.assignedPost) && (
+                      <span style={{ fontSize: '11px', color: '#94A3B8', textAlign: 'center', maxWidth: '80px', lineHeight: '1.2' }}>
+                        {step.assignedPostName || step.assignedPost}
+                      </span>
+                    )}
                   </div>
                   {i < approvalSteps.length - 1 && (
-                    <div style={{ display:'flex', alignItems:'center', marginBottom:'20px', flexShrink:0 }}>
-                      <div style={{ width:'20px', height:'2px', background:'#E2E8F0' }}/>
-                      <span style={{ color:'#CBD5E1', fontSize:'14px', margin:'0 2px' }}>›</span>
-                      <div style={{ width:'20px', height:'2px', background:'#E2E8F0' }}/>
-                    </div>
+                    <div style={{ width: '28px', height: '2px', background: '#e5e7eb', marginBottom: '30px', flexShrink: 0 }} />
                   )}
                 </React.Fragment>
               ))}
@@ -557,16 +554,14 @@ useEffect(() => {
           const proj = projects.find(p => p._id === (workflow.project?._id || workflow.project));
           const projName = proj?.name || workflow.project?.name || 'Projet assigné';
           return (
-            <div style={{ ...S.card, background:'linear-gradient(135deg, #F0FDF4, #DCFCE7)', border:'1.5px solid #BBF7D0' }}>
-              <div style={{ padding:'14px 20px', display:'flex', alignItems:'center', gap:'12px' }}>
-                <div style={{ width:'36px', height:'36px', borderRadius:'10px', background:'#16A34A', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <i className="ri-folder-open-line" style={{ fontSize:'16px' }}></i>
+            <div style={S.card}>
+              <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <i className="ri-folder-line" style={{ fontSize: '16px', color: '#475569' }}></i>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Projet</span>
+                  <p style={{ margin: '2px 0 0', fontSize: '14px', fontWeight: '700', color: '#0F172A' }}>{projName}</p>
                 </div>
-                <div style={{ flex:1 }}>
-                  <span style={{ fontSize:'10px', fontWeight:700, color:'#16A34A', textTransform:'uppercase', letterSpacing:'0.07em' }}>Projet</span>
-                  <p style={{ margin:'2px 0 0', fontSize:'14px', fontWeight:700, color:'#0F172A' }}>{projName}</p>
-                </div>
-                <span style={{ display:'inline-flex', alignItems:'center', gap:'5px', background:'#16A34A', color:'#fff', padding:'4px 12px', borderRadius:'20px', fontSize:'11px', fontWeight:700 }}>
+                <span style={{ marginLeft: 'auto', ...S.badge('#dcfce7', '#166534'), fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                   <i className="ri-check-line"></i> Assigné
                 </span>
               </div>
@@ -577,11 +572,8 @@ useEffect(() => {
         {/* ── FORMULAIRE EMPLOYÉ ── */}
         {hasFields && Object.keys(fieldValues).length > 0 ? (
           <div style={S.card}>
-            <div style={{ padding:'16px 24px', borderBottom:'1.5px solid #F1F5F9', display:'flex', alignItems:'center', gap:'10px', background:'#FAFAFA', borderRadius:'16px 16px 0 0' }}>
-              <div style={{ width:'30px', height:'30px', borderRadius:'8px', background:'#EFF6FF', border:'1.5px solid #BFDBFE', display:'flex', alignItems:'center', justifyContent:'center', color:'#2563EB' }}>
-                <i className="ri-file-list-3-line" style={{ fontSize:'14px' }}></i>
-              </div>
-              <span style={{ fontSize:'13px', fontWeight:800, color:'#0F172A' }}>Formulaire de demande</span>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Formulaire de demande</span>
               {(() => {
                 const reqCount = formFields.filter(f => f.required && !['auto_number','auto_user','auto_status'].includes(f.type) && !f.readOnly).length;
                 return reqCount > 0
@@ -624,35 +616,26 @@ useEffect(() => {
           </div>
         )}
 
-        {/* ── RÉCAPITULATIF PRO ── */}
-        <div style={{ background:'linear-gradient(135deg, #0F172A, #1E293B)', borderRadius:'16px', padding:'20px 24px', marginBottom:'20px', display:'flex', gap:'0', flexWrap:'wrap' }}>
-          <div style={{ flex:1, minWidth:'140px', padding:'8px 16px', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
-            <p style={{ margin:'0 0 4px', fontSize:'10px', color:'#64748B', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Workflow</p>
-            <p style={{ margin:0, fontSize:'13px', fontWeight:700, color:'#E2E8F0', lineHeight:1.3 }}>{workflow.name}</p>
+        {/* ── RÉSUMÉ ── */}
+        <div style={{ background: '#f9fafb', borderRadius: '12px', padding: '14px 20px', marginBottom: '20px', border: '1.5px solid #E2E8F0', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Workflow</p>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{workflow.name}</p>
           </div>
-          <div style={{ flex:0, minWidth:'100px', padding:'8px 16px', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
-            <p style={{ margin:'0 0 4px', fontSize:'10px', color:'#64748B', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Étapes</p>
-            <p style={{ margin:0, fontSize:'20px', fontWeight:900, color:'#60A5FA' }}>{approvalSteps.length}</p>
-          </div>
-          <div style={{ flex:0, minWidth:'130px', padding:'8px 16px', borderRight:'1px solid rgba(255,255,255,0.08)' }}>
-            <p style={{ margin:'0 0 4px', fontSize:'10px', color:'#64748B', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Demandeur</p>
-            <div style={{ display:'flex', alignItems:'center', gap:'7px' }}>
-              <div style={{ width:'24px', height:'24px', borderRadius:'50%', background:'linear-gradient(135deg, #3B82F6, #2563EB)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:800, flexShrink:0 }}>
-                {(user?.firstName || '?').charAt(0).toUpperCase()}
-              </div>
-              <p style={{ margin:0, fontSize:'13px', fontWeight:700, color:'#E2E8F0' }}>
-                {[user?.firstName, user?.lastName].filter(Boolean).join(' ')}
-              </p>
-            </div>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Étapes de validation</p>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{approvalSteps.length}</p>
           </div>
           {docType && (
-            <div style={{ flex:0, minWidth:'120px', padding:'8px 16px' }}>
-              <p style={{ margin:'0 0 4px', fontSize:'10px', color:'#64748B', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Type</p>
-              <p style={{ margin:0, fontSize:'14px', fontWeight:800, color:'#93C5FD', fontFamily:'monospace', letterSpacing:'1px' }}>
-                {docType.prefix}
-              </p>
+            <div>
+              <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Document généré</p>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>{docType?.prefix}{new Date().getFullYear().toString().slice(-2)}-{String((docType?.counter || 0) + 1).padStart(docType?.digits || 3, '0')}</p>            
             </div>
           )}
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase' }}>Demandeur</p>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '600', color: '#0F172A' }}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</p>
+          </div>
         </div>
 
         {/* ── PIÈCES JOINTES ── */}
@@ -735,28 +718,13 @@ useEffect(() => {
   )}
 </div>
 
-        {/* ── BOUTON SOUMETTRE PRO ── */}
-        <button type="button" onClick={handleSubmit} disabled={saving}
-          style={{
-            width:'100%', padding:'16px', borderRadius:'14px', border:'none',
-            background: saving ? '#94A3B8' : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-            color:'#fff', fontWeight:800, fontSize:'16px', cursor: saving ? 'not-allowed' : 'pointer',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:'10px',
-            boxShadow: saving ? 'none' : '0 8px 24px rgba(37,99,235,0.35)',
-            transition:'all 0.2s', letterSpacing:'0.02em',
-            fontFamily:"'Inter',sans-serif",
-          }}
-          onMouseEnter={e => { if (!saving) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
-        >
+        {/* ── BOUTON SOUMETTRE ── */}
+        <button type="button" onClick={handleSubmit} disabled={saving} style={{ ...S.submitBtn(saving), display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
           {saving
-            ? (uploading
-                ? <><i className="ri-upload-cloud-2-line" style={{ fontSize:'18px' }}></i> Upload en cours…</>
-                : <><i className="ri-time-line" style={{ fontSize:'18px', animation:'spin .8s linear infinite' }}></i> Envoi en cours…</>)
-            : <><i className="ri-send-plane-fill" style={{ fontSize:'18px' }}></i> Soumettre la demande</>}
+            ? (uploading ? <><i className="ri-attachment-2"></i> Upload en cours...</> : <><i className="ri-time-line"></i> Envoi en cours...</>)
+            : <><i className="ri-rocket-2-line"></i> Soumettre la demande</>}
         </button>
-        <p style={{ textAlign:'center', color:'#94A3B8', fontSize:'12px', marginTop:'10px', display:'flex', alignItems:'center', justifyContent:'center', gap:'5px' }}>
-          <i className="ri-shield-check-line" style={{ color:'#22C55E' }}></i>
+        <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: '12px', marginTop: '10px' }}>
           Votre demande sera transmise aux responsables pour validation.
         </p>
 
