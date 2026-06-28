@@ -501,8 +501,7 @@ useEffect(() => {
         <div style={{ marginBottom: '28px' }}>
           {docType && (
             <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'linear-gradient(135deg, #EFF6FF, #DBEAFE)', border:'1.5px solid #BFDBFE', padding:'6px 14px', borderRadius:'20px', marginBottom:'14px' }}>
-              <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:'13px', color:'#2563EB', letterSpacing:'1px' }}>{docType.prefix}</span>
-              <span style={{ width:'4px', height:'4px', borderRadius:'50%', background:'#93C5FD', display:'inline-block' }}/>
+              <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:'13px', color:'#1D4ED8', letterSpacing:'1px', background:'#BFDBFE', padding:'2px 8px', borderRadius:'6px' }}>{docType.prefix}</span>
               <span style={{ fontSize:'13px', fontWeight:600, color:'#1D4ED8' }}>{docType.name}</span>
             </div>
           )}
@@ -648,9 +647,9 @@ useEffect(() => {
           </div>
           {docType && (
             <div style={{ flex:0, minWidth:'120px', padding:'8px 16px' }}>
-              <p style={{ margin:'0 0 4px', fontSize:'10px', color:'#64748B', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Numérotation</p>
+              <p style={{ margin:'0 0 4px', fontSize:'10px', color:'#64748B', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em' }}>Type</p>
               <p style={{ margin:0, fontSize:'14px', fontWeight:800, color:'#93C5FD', fontFamily:'monospace', letterSpacing:'1px' }}>
-                {docType.prefix}26-???
+                {docType.prefix}
               </p>
             </div>
           )}
