@@ -18,13 +18,7 @@ const IconEdit    = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="
 
 const B = '#2563EB';
 
-const DOC_TYPES = [
-  { value:'',   label:'Aucun (workflow simple)'     },
-  { value:'DA', label:"DA — Demande d'achat",  color:'#2563EB' },
-  { value:'BS', label:'BS — Bon de sortie',    color:'#D97706' },
-  { value:'DF', label:'DF — Facturation',      color:'#7C3AED' },
-  { value:'BR', label:'BR — Bon de réception', color:'#16A34A' },
-];
+const PALETTE = ['#2563EB','#D97706','#7C3AED','#16A34A','#0891B2','#DB2777','#EA580C','#65A30D'];
 
 const getInp = (focused, color) => ({
   width:'100%', boxSizing:'border-box', padding:'10px 14px', borderRadius:'9px',
@@ -83,17 +77,17 @@ const WorkflowEditInfoPage = () => {
           workflowService.getById(id),
           departmentService.getAllPosts(),
           projectService.getAll ? projectService.getAll() : { data:{ projects:[] } },
-          API.get('/document-types').catch(() => ({ data: { data: { documentTypes: [] } } })),
+          API.get('/document-types').catch(() => ({ data:{ data:{ documentTypes:[] } } })),
         ]);
         const wf    = wfRes?.data?.workflow;
         const projs = projRes?.data?.projects || projRes?.data?.data?.projects || [];
-        setDocTypes(dtRes?.data?.data?.documentTypes || []);
+        setDocTypes(dtRes?.data?.data?.documentTypes?.filter(dt => dt.isActive !== false) || []);
         if (!wf) { setMsg('ERREUR Workflow introuvable'); setLoading(false); return; }
         if (wf.status !== 'draft') { setMsg('ERREUR Ce workflow est déjà démarré. Seuls les brouillons sont modifiables.'); setLoading(false); return; }
         setWorkflow(wf); setProjects(projs); setAllPosts(postsData||[]);
         const mapping = {};
         (wf.steps||[]).forEach(step => { mapping[step.postSlot||('slot_'+step.order)] = step.assignedPost||''; });
-        setForm({ name:wf.name||'', description:wf.description||'', projectId:wf.project?._id||wf.project||'', dueDate:wf.dueDate?wf.dueDate.slice(0,10):'', docType: (wf.docType?._id || wf.docType || ''), postMapping:mapping });
+        setForm({ name:wf.name||'', description:wf.description||'', projectId:wf.project?._id||wf.project||'', dueDate:wf.dueDate?wf.dueDate.slice(0,10):'', docType:(wf.docType?._id||wf.docType||''), postMapping:mapping });
       } catch (err) { setMsg('ERREUR '+(err.response?.data?.message||err.message)); }
       finally { setLoading(false); }
     };
@@ -193,41 +187,31 @@ const WorkflowEditInfoPage = () => {
           {/* ── Section 2 : Type documentaire ── */}
           <SectionCard number="2" title="Type documentaire" subtitle="Associez un type de document à ce workflow. Ce type détermine la numérotation automatique des demandes.">
             {docTypes.length === 0 ? (
-              <div style={{ padding:'14px 16px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'10px', fontSize:'13px', color:'#92400E', display:'flex', alignItems:'center', gap:'8px' }}>
-                <IconAlert/>
-                Aucun type de document disponible — créez-en un dans <strong>Types de documents</strong> avant de continuer.
+              <div style={{ padding:'12px 14px', background:'#FFFBEB', border:'1.5px solid #FDE68A', borderRadius:'9px', fontSize:'13px', color:'#92400E', display:'flex', alignItems:'center', gap:'8px' }}>
+                <IconAlert/> Aucun type de document — créez-en un dans <strong>Types de documents</strong> d'abord.
               </div>
             ) : (
-              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-                {/* Option "Aucun" */}
-                <button onClick={()=>setForm(p=>({...p,docType:''}))}
-                  style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${!form.docType?B:'#E2E8F0'}`, background:!form.docType?'#EFF6FF':'#F8FAFC', color:!form.docType?B:'#64748B', fontWeight:!form.docType?700:500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s' }}>
-                  Aucun (workflow simple)
-                </button>
-                {docTypes.filter(dt => dt.isActive !== false).map((dt, idx) => {
-                  const color = PALETTE[idx % PALETTE.length];
-                  const isSel = form.docType === dt._id;
+              <>
+                <SSelect value={form.docType} onChange={e=>setForm(p=>({...p,docType:e.target.value}))}>
+                  <option value="" disabled hidden>— Choisir un type de document —</option>
+                  {docTypes.map(dt => (
+                    <option key={dt._id} value={dt._id}>{dt.prefix} — {dt.name}</option>
+                  ))}
+                </SSelect>
+                {form.docType && (() => {
+                  const sel = docTypes.find(dt => dt._id === form.docType);
+                  if (!sel) return null;
+                  const year = new Date().getFullYear().toString().slice(-2);
+                  const ex = `${sel.prefix}${year}-${'1'.padStart(sel.digits, '0')}`;
                   return (
-                    <button key={dt._id} onClick={()=>setForm(p=>({...p,docType:dt._id}))}
-                      style={{ padding:'10px 18px', borderRadius:'10px', border:`1.5px solid ${isSel?color:'#E2E8F0'}`, background:isSel?color+'18':'#F8FAFC', color:isSel?color:'#64748B', fontWeight:isSel?700:500, fontSize:'13px', cursor:'pointer', fontFamily:"'Inter',sans-serif", transition:'all 0.15s', boxShadow:isSel?`0 2px 8px ${color}30`:'none' }}>
-                      {dt.prefix} — {dt.name}
-                    </button>
+                    <div style={{ marginTop:'10px', padding:'9px 14px', background:'#EFF6FF', borderRadius:'8px', border:'1px solid #BFDBFE', fontSize:'12px', color:'#1D4ED8', fontWeight:600, display:'flex', alignItems:'center', gap:'8px' }}>
+                      <span style={{ fontFamily:'monospace', fontWeight:800 }}>{sel.prefix}</span>
+                      <span>— Numérotation auto · Ex : <strong>{ex}</strong></span>
+                    </div>
                   );
-                })}
-              </div>
+                })()}
+              </>
             )}
-            {form.docType && (() => {
-              const sel = docTypes.find(dt => dt._id === form.docType);
-              if (!sel) return null;
-              const year = new Date().getFullYear().toString().slice(-2);
-              const example = `${sel.prefix}${year}-${'1'.padStart(sel.digits, '0')}`;
-              return (
-                <div style={{ marginTop:'14px', padding:'12px 16px', background:'#EFF6FF', borderRadius:'10px', border:'1.5px solid #BFDBFE', fontSize:'13px', color:'#1D4ED8', fontWeight:500, display:'flex', alignItems:'center', gap:'10px' }}>
-                  <span style={{ fontWeight:800, fontSize:'15px' }}>{sel.prefix}</span>
-                  <span>— Les demandes seront numérotées automatiquement · Exemple : <strong>{example}</strong></span>
-                </div>
-              );
-            })()}
           </SectionCard>
 
           {/* ── Section 3 : Postes responsables ── */}
