@@ -197,7 +197,7 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px', minWidth: 0 }}>
 
         {/* Poignée drag — listeners uniquement ici */}
         <span
@@ -229,7 +229,7 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
         <input
           value={field.label}
           onChange={(e) => updateField(fi, 'label', e.target.value)}
-          style={{ flex: 1, padding: '3px 6px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+          style={{ flex: 1, minWidth: 0, padding: '4px 8px', borderRadius: '6px', border: '1.5px solid #E2E8F0', fontSize: '12px', outline: 'none' }}
         />
 
         {/* Supprimer */}
@@ -625,7 +625,7 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
 
         <div style={{ marginBottom: '16px' }}>
           <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
-            1. Par poste (recommandé)
+            Poste responsable de cette étape
           </label>
           <select
             value={node.assignedPost || ''}
@@ -647,70 +647,11 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
           </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 0' }}>
-          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>OU</span>
-          <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
-        </div>
-
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
-            2. Par personne spécifique
-          </label>
-          {users.length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '12px' }}>Chargement...</p>
-          ) : (
-            <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-              <div
-                onClick={() => {
-                  onChange('assignedTo', null);
-                  onChange('assignedToName', '');
-                  onChange('assignedPost', '');
-                  onChange('assignedPostName', '');
-                }}
-                style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', color: '#64748b', borderBottom: '1px solid #f1f5f9', background: !node.assignedTo ? '#eff6ff' : '#fff' }}
-              >
-                Aucun (utiliser le poste)
-              </div>
-              {users.map((u) => {
-                const isSelected = node.assignedTo === u._id;
-                return (
-                  <div
-                    key={u._id}
-                    onClick={() => {
-                      onChange('assignedTo', u._id);
-                      onChange('assignedToName', u.firstName + ' ' + u.lastName);
-                      onChange('assignedPost', '');
-                      onChange('assignedPostName', '');
-                      onChange('assignedRole', '');
-                    }}
-                    style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', background: isSelected ? '#eff6ff' : '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}
-                  >
-                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: isSelected ? '#2563EB' : '#e0e7ff', color: isSelected ? '#fff' : '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', flexShrink: 0 }}>
-                      {u.firstName.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: '13px', color: isSelected ? '#2563EB' : '#0f172a' }}>
-                        {u.firstName + ' ' + u.lastName}
-                      </p>
-                      <p style={{ margin: 0, fontSize: '11px', color: '#94a3b8' }}>
-                        {u.jobTitle || u.role?.name || ''}
-                      </p>
-                    </div>
-                    {isSelected && <span style={{ color: '#2563EB', fontWeight: 700 }}>✓</span>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {(node.assignedPost || node.assignedTo) && (
-          <div style={{ marginTop: '10px', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #86efac' }}>
-            <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#166534' }}>
-              {node.assignedTo
-                ? '✓ Assigné à : ' + (node.assignedToName || 'Utilisateur sélectionné')
-                : '✓ Assigné au poste : ' + (node.assignedPostName || node.assignedPost)}
+        {node.assignedPost && (
+          <div style={{ marginTop: '10px', padding: '10px 14px', background: '#F0FDF4', borderRadius: '9px', border: '1.5px solid #86EFAC', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px' }}>✅</span>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#166534' }}>
+              Poste assigné : <strong>{node.assignedPost}</strong>
             </p>
           </div>
         )}
