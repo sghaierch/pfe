@@ -18,7 +18,7 @@ const sendEmail = async ({ to, subject, html }) => {
     const message = [
       `From: "Axia Workflow" <${process.env.EMAIL}>`,
       `To: ${Array.isArray(to) ? to.join(',') : to}`,
-      `Subject: ${subject}`,
+      `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
       'MIME-Version: 1.0',
       'Content-Type: text/html; charset=utf-8',
       '',
