@@ -16,14 +16,15 @@ const sendEmail = async ({ to, subject, html }) => {
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
     const message = [
-      `From: "Axia Workflow" <${process.env.EMAIL}>`,
-      `To: ${Array.isArray(to) ? to.join(',') : to}`,
-      `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      html,
-    ].join('\n');
+  `From: "Axia Workflow" <${process.env.EMAIL}>`,
+  `To: ${Array.isArray(to) ? to.join(',') : to}`,
+  `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`,
+  'MIME-Version: 1.0',
+  'Content-Type: text/html; charset=UTF-8',
+  'Content-Transfer-Encoding: base64',
+  '',
+  Buffer.from(html, 'utf8').toString('base64'),
+].join('\n');
 
     const encodedMessage = Buffer.from(message)
       .toString('base64')
