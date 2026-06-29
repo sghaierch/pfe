@@ -1,26 +1,45 @@
-const nodemailer = require('nodemailer');
-
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  secure: true,
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.PASSWORD_APPLICATION,
-  },
-});
+// services/emailService.js
+// ✅ Gmail API OAuth2 — fonctionne sur Render (SMTP bloqué sur plan gratuit)
 
 const sendEmail = async ({ to, subject, html }) => {
   try {
-    await transporter.sendMail({
-      from: `"Axia Workflow" <${process.env.EMAIL}>`,
-      to,
-      subject,
+    const { google } = require('googleapis');
+
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GMAIL_CLIENT_ID,
+      process.env.GMAIL_CLIENT_SECRET,
+      'https://developers.google.com/oauthplayground'
+    );
+
+    oauth2Client.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    const message = [
+      `From: "Axia Workflow" <${process.env.EMAIL}>`,
+      `To: ${Array.isArray(to) ? to.join(',') : to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=utf-8',
+      '',
       html,
+    ].join('\n');
+
+    const encodedMessage = Buffer.from(message)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: { raw: encodedMessage },
     });
-    console.log('✅ Email envoyé à:', to);
+
+    console.log('[EMAIL] Envoyé via Gmail API à:', to);
     return true;
   } catch (err) {
-    console.error('❌ Erreur email:', err.message);
+    console.error('[EMAIL] Erreur Gmail API:', err.message);
     return false;
   }
 };
@@ -61,12 +80,10 @@ const resolveTemplate = async (conn, eventType, vars) => {
         const tmpl    = settings.emailTemplates?.[eventType];
         const trigger = settings.triggers?.[eventType];
 
-        // Vérifier si l'email est activé pour cet event
         if (trigger && trigger.email === false) {
-          return null; // Email désactivé — ne pas envoyer
+          return null;
         }
 
-        // Si un subject ou body personnalisé existe, l'utiliser
         if (tmpl && (tmpl.subject || tmpl.body)) {
           const headerColors = {
             step_assigned:      '#4f46e5',
@@ -87,9 +104,9 @@ const resolveTemplate = async (conn, eventType, vars) => {
       }
     }
   } catch (err) {
-    console.error('⚠️ resolveTemplate DB error:', err.message);
+    console.error('[EMAIL] resolveTemplate error:', err.message);
   }
-  return null; // Fallback sur le template hardcodé
+  return null;
 };
 
 // ── Templates hardcodés (fallback) ───────────────────────────────────────────
