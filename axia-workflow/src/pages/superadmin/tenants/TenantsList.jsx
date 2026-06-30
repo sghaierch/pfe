@@ -325,7 +325,7 @@ const TenantDetail = ({ tenant, plans, onClose, onAction, msg }) => {
         ))}
         <Btn icon="ri-vip-diamond-line"  label="Changer plan"     bg="#ede9fe" color="#7c3aed" border="#c4b5fd" onClick={() => setChangePlanModal(true)} />
         <Btn icon="ri-settings-3-line"   label="Limites"          bg="#e0f2fe" color="#0369a1" border="#7dd3fc" onClick={() => setEditLimitsModal(true)} />
-        <Btn icon="ri-archive-line" label="Supprimer" bg="#fff7ed" color="#f59e0b" border="#fed7aa" onClick={() => onAction('delete')} />
+        <Btn icon="ri-archive-line" label="Archiver" bg="#fff7ed" color="#f59e0b" border="#fed7aa" onClick={() => onAction('delete')} />
       </div>
 
       {/* Tabs */}
@@ -483,12 +483,12 @@ const TenantsList = () => {
     try {
       if (type === 'suspend')    await tenantService.suspendTenant(tenantId);
       if (type === 'reactivate') await tenantService.reactivateTenant(tenantId);
-      if (type === 'delete')     await tenantService.deleteTenant(tenantId);
+      if (type === 'delete')     await tenantService.archive(tenantId);
       if (type === 'approve')    await tenantService.approveTenant(tenantId, extra.durationMonths);
       if (type === 'reject')     await tenantService.rejectTenant(tenantId, extra.reason);
       if (type === 'resend')     await tenantService.resendCredentials(tenantId);
       if (type === 'renew')      await tenantService.renewSubscription(tenantId, extra.durationMonths);
-      const labels = { suspend:'Entreprise suspendue', reactivate:'Entreprise réactivée', delete:'Entreprise supprimée', approve:'Entreprise approuvée', reject:'Demande rejetée', resend:'Identifiants renvoyés', renew:'Abonnement renouvelé' };
+      const labels = { suspend:'Entreprise suspendue', reactivate:'Entreprise réactivée', delete:'Entreprise archivée', approve:'Entreprise approuvée', reject:'Demande rejetée', resend:'Identifiants renvoyés', renew:'Abonnement renouvelé' };
       showMsg('✅ ' + (labels[type] || 'Action effectuée'));
       setActionModal(null);
       if (type === 'delete' && selectedTenant?._id === tenantId) setSelectedTenant(null);
@@ -655,7 +655,7 @@ const TenantsList = () => {
                       {(t.status === 'suspended' || t.status === 'rejected') && <button onClick={() => setActionModal({ tenant: t, type: 'reactivate' })} title="Réactiver" style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#dcfce7', border: '1px solid #86efac', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <i className="ri-play-circle-line" style={{ fontSize: '14px' }}></i>
                       </button>}
-                      <button onClick={() => setActionModal({ tenant: t, type: 'delete' })} title="Supprimer" style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff7ed', border: '1px solid #fed7aa', cursor: 'pointer', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <button onClick={() => setActionModal({ tenant: t, type: 'delete' })} title="Archiver" style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff7ed', border: '1px solid #fed7aa', cursor: 'pointer', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
 <i className="ri-archive-line" style={{ fontSize: '14px' }}></i>
                       </button>
                     </div>
@@ -680,7 +680,7 @@ const ActionModal = ({ actionModal, onClose, onConfirm }) => {
   const CFG = {
     suspend:    { title: 'Suspendre l\'entreprise', icon: 'ri-pause-circle-line',   color: '#ea580c', msg: (t) => `Suspendre <strong>${t.companyName}</strong> ?`, danger: true },
     reactivate: { title: 'Réactiver l\'entreprise', icon: 'ri-play-circle-line',    color: '#16a34a', msg: (t) => `Réactiver <strong>${t.companyName}</strong> ?`, danger: false },
-    delete: { title: 'Supprimer l\'entreprise', icon: 'ri-archive-line', color: '#f59e0b', msg: (t) => `Supprimer définitivement <strong>${t.companyName}</strong> ? <br><br><span style="color:#dc2626">⚠️ La base <code>${t.dbName}</code> ne sera pas supprimée.</span>`, danger: true },
+    delete: { title: 'Archiver l\'entreprise', icon: 'ri-archive-line', color: '#f59e0b', msg: (t) => `Archiver <strong>${t.companyName}</strong> ? <br><br><span style="color:#92400e">ℹ️ L'entreprise sera désactivée et masquée de la liste active. La base <code>${t.dbName}</code> ne sera pas supprimée et l'archivage peut être annulé.</span>`, danger: false },
   };
   const c = CFG[actionModal.type] || {};
   return (

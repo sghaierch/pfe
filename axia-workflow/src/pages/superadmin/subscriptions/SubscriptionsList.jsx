@@ -68,10 +68,10 @@ const SubscriptionsList = () => {
 
   const handleDelete = async () => {
     try {
-      await subscriptionService.deleteSubscription(deleteModal._id);
-      showMsg('Abonnement supprimé');
+      await subscriptionService.archive(deleteModal._id);
+      showMsg('Abonnement archivé');
       setDeleteModal(null); fetchData();
-    } catch { showMsg('Impossible de supprimer', 'error'); }
+    } catch { showMsg('Impossible d\'archiver', 'error'); }
   };
 
   const getName  = s => s.tenant?.companyName  || '—';
@@ -207,7 +207,7 @@ const SubscriptionsList = () => {
                           <i className="ri-close-circle-line" style={{ fontSize: '14px' }}></i>
                         </button>
                       </>}
-                      <button onClick={() => setDeleteModal(sub)} title="Supprimer"
+                      <button onClick={() => setDeleteModal(sub)} title="Archiver"
                         style={{ width: '30px', height: '30px', borderRadius: '7px', background: '#fff7ed', border: '1px solid #fed7aa', cursor: 'pointer', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
 <i className="ri-archive-line" style={{ fontSize: '14px' }}></i>
                       </button>
@@ -310,26 +310,27 @@ const SubscriptionsList = () => {
         </div>
       )}
 
-      {/* Modal suppression */}
+      {/* Modal archivage */}
       {deleteModal && (
         <div className="sa-modal-overlay" onClick={() => setDeleteModal(null)}>
           <div className="sa-modal sa-modal-sm" onClick={e => e.stopPropagation()}>
             <div className="sa-modal-header">
               <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px' }}>
-<i className="ri-archive-line" style={{ color: '#dc2626' }}></i>Confirmer la suppression
+<i className="ri-archive-line" style={{ color: '#f59e0b' }}></i>Confirmer l'archivage
               </h2>
               <button className="sa-modal-close" onClick={() => setDeleteModal(null)}>✕</button>
             </div>
             <div className="sa-modal-body">
-              <p style={{ fontSize: '13px', color: '#374151', marginBottom: '8px' }}>Supprimer la demande de <strong>{getName(deleteModal)}</strong> ?</p>
-              <p style={{ color: '#dc2626', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <i className="ri-error-warning-line"></i>Cette action est irréversible.
+              <p style={{ fontSize: '13px', color: '#374151', marginBottom: '8px' }}>Archiver la demande de <strong>{getName(deleteModal)}</strong> ?</p>
+              <p style={{ color: '#92400e', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <i className="ri-information-line"></i>L'abonnement sera masqué de la liste mais restera consultable dans les archives.
               </p>
             </div>
             <div className="sa-modal-footer">
               <button className="sa-btn sa-btn-secondary" onClick={() => setDeleteModal(null)}>Annuler</button>
-              <button className="sa-btn-danger" onClick={handleDelete}>Supprimer</button>
+              <button className="sa-btn-danger" style={{ background: '#f59e0b' }} onClick={handleDelete}>Archiver</button>
             </div>
+
           </div>
         </div>
       )}
