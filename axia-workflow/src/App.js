@@ -47,6 +47,8 @@ import Workfloweditinfopage from './pages/company/workflows/Workfloweditinfopage
 import EmployeeRequestDetail from './pages/employee/EmployeeRequestDetail';
 import TaskValidationPage   from './pages/employee/TaskValidationPage';
 import DocumentTypesPage from './pages/company/document-types/DocumentTypesPage';
+import CompanyWorkflowsList from './pages/company/workflows/CompanyWorkflowsList';
+import WorkflowEditor from './pages/company/workflows/WorkflowEditor';
 function App() {
   return (
     <AuthProvider>
@@ -86,14 +88,16 @@ function App() {
             <Route path="users/edit/:id"     element={<CompanyUserEdit />} />
             <Route path="projects"           element={<ProjectsList />} />
             <Route path="projects/:id"       element={<ProjectDetail />} />
+            <Route path="workflows"           element={<CompanyWorkflowsList />} />
+            <Route path="workflows/new"      element={<CreateWorkflowFromTemplate />} />
+            <Route path="workflows/generate" element={<GenerateWithAI />} />
             <Route path="workflows/:id"      element={<WorkflowDetail />} />
             <Route path="workflows/:id/edit" element={<WorkflowEditPage />} />
             <Route path="workflows/:id/edit-info" element={<Workfloweditinfopage />} />
             <Route path="settings/posts"     element={<PostsList />} />
             <Route path="departments"        element={<DepartmentsList />} />
             <Route path="templates"          element={<TemplatesList />} />
-            <Route path="document-types" element={<DocumentTypesPage />} />
-            <Route path="workflows/new"      element={<CreateWorkflowFromTemplate />} />
+            <Route path="document-types"     element={<DocumentTypesPage />} />
             <Route path="projects/:id/generate-ai" element={<GenerateWithAI />} />
             <Route path="ai-assistant" element={<WorkflowAssistant />} />
             <Route path="audit" element={<AuditLog />} />
