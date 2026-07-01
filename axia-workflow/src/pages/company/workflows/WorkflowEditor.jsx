@@ -36,6 +36,8 @@ const FIELD_TYPES = [
   { type: 'date',      label: 'Date',       icon: 'D',  color: '#0891B2' },
   { type: 'select',    label: 'Liste',      icon: 'L',  color: '#D97706' },
   { type: 'textarea',  label: 'Zone texte', icon: 'TT', color: '#059669' },
+  { type: 'file',      label: 'Fichier',    icon: 'F',  color: '#DC2626' },
+  { type: 'checkbox',  label: 'Case',       icon: '✓',  color: '#64748B' },
   { type: 'signature', label: 'Signature',  icon: 'SG', color: '#7C3AED' },
   { type: 'table',     label: 'Tableau',    icon: '⊞',  color: '#0891B2' },
 ];
@@ -306,72 +308,49 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
     )}
 
     {(field.columns || []).map((col, ci) => (
-      <div
-        key={col.id || ci}
-        style={{
-          display: 'flex', flexDirection: 'column', gap: '6px',
-          marginBottom: '6px', padding: '8px', borderRadius: '6px',
-          background: '#fff', border: '1px solid #bae6fd',
-        }}
-      >
-        {/* Ligne 1 : numéro + nom colonne + supprimer */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{
-            width: '18px', height: '18px', borderRadius: '50%',
-            background: '#e0f2fe', color: '#0369a1', fontSize: '10px',
-            fontWeight: 700, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', flexShrink: 0,
-          }}>
-            {ci + 1}
-          </span>
+      <div key={col.id || ci} style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '4px' }}>
+        <input
+          value={col.label}
+          onChange={(e) => {
+            const cols = [...(field.columns || [])];
+            cols[ci] = { ...cols[ci], label: e.target.value };
+            updateField(fi, 'columns', cols);
+          }}
+          placeholder="Nom colonne"
+          style={{ flex: 1, padding: '3px 6px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px' }}
+        />
+        <select
+          value={col.type || 'text'}
+          onChange={(e) => {
+            const cols = [...(field.columns || [])];
+            cols[ci] = { ...cols[ci], type: e.target.value };
+            updateField(fi, 'columns', cols);
+          }}
+          style={{ padding: '3px 5px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px' }}
+        >
+          <option value="text">Texte</option>
+          <option value="number">Nombre</option>
+          <option value="date">Date</option>
+        </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: '#64748b', cursor: 'pointer' }}>
           <input
-            value={col.label}
+            type="checkbox"
+            checked={col.required || false}
             onChange={(e) => {
               const cols = [...(field.columns || [])];
-              cols[ci] = { ...cols[ci], label: e.target.value };
+              cols[ci] = { ...cols[ci], required: e.target.checked };
               updateField(fi, 'columns', cols);
             }}
-            placeholder="Nom colonne"
-            style={{ flex: 1, minWidth: 0, padding: '4px 8px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px', outline: 'none' }}
           />
-          <button
-            onClick={() => {
-              const cols = (field.columns || []).filter((_, i) => i !== ci);
-              updateField(fi, 'columns', cols);
-            }}
-            title="Supprimer la colonne"
-            style={{ background: '#fee2e2', color: '#dc2626', border: 'none', width: '20px', height: '20px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
-          >×</button>
-        </div>
-
-        {/* Ligne 2 : type + obligatoire */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px' }}>
-          <select
-            value={col.type || 'text'}
-            onChange={(e) => {
-              const cols = [...(field.columns || [])];
-              cols[ci] = { ...cols[ci], type: e.target.value };
-              updateField(fi, 'columns', cols);
-            }}
-            style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px', background: '#f8fafc' }}
-          >
-            <option value="text">Texte</option>
-            <option value="number">Nombre</option>
-            <option value="date">Date</option>
-          </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', color: '#64748b', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
-            <input
-              type="checkbox"
-              checked={col.required || false}
-              onChange={(e) => {
-                const cols = [...(field.columns || [])];
-                cols[ci] = { ...cols[ci], required: e.target.checked };
-                updateField(fi, 'columns', cols);
-              }}
-            />
-            Obligatoire
-          </label>
-        </div>
+          Req
+        </label>
+        <button
+          onClick={() => {
+            const cols = (field.columns || []).filter((_, i) => i !== ci);
+            updateField(fi, 'columns', cols);
+          }}
+          style={{ background: '#fee2e2', color: '#dc2626', border: 'none', width: '18px', height: '18px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontWeight: 700, flexShrink: 0 }}
+        >×</button>
       </div>
     ))}
   </div>
@@ -564,7 +543,7 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
             />
           </div>
 
-          {canConfig && !isFirstEtape && (
+          {canConfig && (
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '4px' }}>
                 Delai
@@ -590,41 +569,22 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
               <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '8px' }}>
                 Permissions (Claims)
               </label>
-              {isFirstEtape && (
-                <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
-                  L'employé soumet sa propre demande — il peut uniquement la voir, pas la valider ni la rejeter.
-                </p>
-              )}
               {[
                 { key: 'canValidate', label: 'Peut valider',  color: '#059669' },
                 { key: 'canReject',   label: 'Peut rejeter',  color: '#dc2626' },
                 { key: 'canModify',   label: 'Peut modifier', color: '#f59e0b' },
                 { key: 'canView',     label: 'Peut voir',     color: '#2563EB' },
-              ].map((claim) => {
-                const forcedForFirst = isFirstEtape && claim.key !== 'canView';
-                const checked = isFirstEtape
-                  ? claim.key === 'canView'
-                  : claims[claim.key] !== false;
-                return (
-                  <label
-                    key={claim.key}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px',
-                      cursor: forcedForFirst ? 'not-allowed' : 'pointer',
-                      opacity: forcedForFirst ? 0.5 : 1,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={forcedForFirst}
-                      onChange={(e) => updateClaim(claim.key, e.target.checked)}
-                      style={{ width: '14px', height: '14px' }}
-                    />
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: claim.color }}>{claim.label}</span>
-                  </label>
-                );
-              })}
+              ].map((claim) => (
+                <label key={claim.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={claims[claim.key] !== false}
+                    onChange={(e) => updateClaim(claim.key, e.target.checked)}
+                    style={{ width: '14px', height: '14px' }}
+                  />
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: claim.color }}>{claim.label}</span>
+                </label>
+              ))}
             </div>
           )}
         </div>
@@ -1039,7 +999,7 @@ const WorkflowEditor = ({
       assignedRole:     i === 0 ? '' : (n.assignedRole || ''),
       assignedPost:     i === 0 ? '' : (n.assignedPost || ''),
       assignedPostName: i === 0 ? '' : (n.assignedPostName || ''),
-      delai:            i === 0 ? '' : (n.delai || ''),
+      delai:            n.delai           || '',
       type:             'etape',
       // APRÈS ✅
 form: {
@@ -1062,10 +1022,9 @@ form: {
       checklist:  (n.checklist || []).map((item) => ({ ...item, checked: false })),
       conditions: n.conditions || [],
       status:     'pending',
-      claims:     i === 0
-        // Étape employé : consulte sa propre demande uniquement
-        ? { canValidate: false, canReject: false, canModify: false, canView: true }
-        : (n.claims || { canValidate: true, canReject: true, canModify: false, canView: true }),
+      claims: n.claims || (i === 0
+        ? { canValidate: false, canReject: false, canModify: true, canView: true }
+        : { canValidate: true, canReject: true, canModify: false, canView: true }),
     }));
 
     if (!docType) {
