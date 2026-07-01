@@ -36,8 +36,6 @@ const FIELD_TYPES = [
   { type: 'date',      label: 'Date',       icon: 'D',  color: '#0891B2' },
   { type: 'select',    label: 'Liste',      icon: 'L',  color: '#D97706' },
   { type: 'textarea',  label: 'Zone texte', icon: 'TT', color: '#059669' },
-  { type: 'file',      label: 'Fichier',    icon: 'F',  color: '#DC2626' },
-  { type: 'checkbox',  label: 'Case',       icon: '✓',  color: '#64748B' },
   { type: 'signature', label: 'Signature',  icon: 'SG', color: '#7C3AED' },
   { type: 'table',     label: 'Tableau',    icon: '⊞',  color: '#0891B2' },
 ];
@@ -566,7 +564,7 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
             />
           </div>
 
-          {canConfig && (
+          {canConfig && !isFirstEtape && (
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '4px' }}>
                 Delai
@@ -592,22 +590,41 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
               <label style={{ display: 'block', fontWeight: 700, fontSize: '12px', color: '#374151', marginBottom: '8px' }}>
                 Permissions (Claims)
               </label>
+              {isFirstEtape && (
+                <p style={{ margin: '0 0 8px', fontSize: '11px', color: '#64748b', fontStyle: 'italic' }}>
+                  L'employé soumet sa propre demande — il peut uniquement la voir, pas la valider ni la rejeter.
+                </p>
+              )}
               {[
                 { key: 'canValidate', label: 'Peut valider',  color: '#059669' },
                 { key: 'canReject',   label: 'Peut rejeter',  color: '#dc2626' },
                 { key: 'canModify',   label: 'Peut modifier', color: '#f59e0b' },
                 { key: 'canView',     label: 'Peut voir',     color: '#2563EB' },
-              ].map((claim) => (
-                <label key={claim.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={claims[claim.key] !== false}
-                    onChange={(e) => updateClaim(claim.key, e.target.checked)}
-                    style={{ width: '14px', height: '14px' }}
-                  />
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: claim.color }}>{claim.label}</span>
-                </label>
-              ))}
+              ].map((claim) => {
+                const forcedForFirst = isFirstEtape && claim.key !== 'canView';
+                const checked = isFirstEtape
+                  ? claim.key === 'canView'
+                  : claims[claim.key] !== false;
+                return (
+                  <label
+                    key={claim.key}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px',
+                      cursor: forcedForFirst ? 'not-allowed' : 'pointer',
+                      opacity: forcedForFirst ? 0.5 : 1,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={forcedForFirst}
+                      onChange={(e) => updateClaim(claim.key, e.target.checked)}
+                      style={{ width: '14px', height: '14px' }}
+                    />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: claim.color }}>{claim.label}</span>
+                  </label>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1022,7 +1039,7 @@ const WorkflowEditor = ({
       assignedRole:     i === 0 ? '' : (n.assignedRole || ''),
       assignedPost:     i === 0 ? '' : (n.assignedPost || ''),
       assignedPostName: i === 0 ? '' : (n.assignedPostName || ''),
-      delai:            n.delai           || '',
+      delai:            i === 0 ? '' : (n.delai || ''),
       type:             'etape',
       // APRÈS ✅
 form: {
@@ -1046,8 +1063,8 @@ form: {
       conditions: n.conditions || [],
       status:     'pending',
       claims:     i === 0
-        // Étape employé : peut modifier sa demande, pas valider/rejeter
-        ? { canValidate: true, canReject: false, canModify: true, canView: true }
+        // Étape employé : consulte sa propre demande uniquement
+        ? { canValidate: false, canReject: false, canModify: false, canView: true }
         : (n.claims || { canValidate: true, canReject: true, canModify: false, canView: true }),
     }));
 
