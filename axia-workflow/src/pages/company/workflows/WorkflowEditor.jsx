@@ -36,8 +36,6 @@ const FIELD_TYPES = [
   { type: 'date',      label: 'Date',       icon: 'D',  color: '#0891B2' },
   { type: 'select',    label: 'Liste',      icon: 'L',  color: '#D97706' },
   { type: 'textarea',  label: 'Zone texte', icon: 'TT', color: '#059669' },
-  { type: 'file',      label: 'Fichier',    icon: 'F',  color: '#DC2626' },
-  { type: 'checkbox',  label: 'Case',       icon: '✓',  color: '#64748B' },
   { type: 'signature', label: 'Signature',  icon: 'SG', color: '#7C3AED' },
   { type: 'table',     label: 'Tableau',    icon: '⊞',  color: '#0891B2' },
 ];
