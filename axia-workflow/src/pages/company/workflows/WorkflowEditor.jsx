@@ -308,49 +308,72 @@ const SortableField = ({ field, fi, updateField, removeField }) => {
     )}
 
     {(field.columns || []).map((col, ci) => (
-      <div key={col.id || ci} style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '4px' }}>
-        <input
-          value={col.label}
-          onChange={(e) => {
-            const cols = [...(field.columns || [])];
-            cols[ci] = { ...cols[ci], label: e.target.value };
-            updateField(fi, 'columns', cols);
-          }}
-          placeholder="Nom colonne"
-          style={{ flex: 1, padding: '3px 6px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px' }}
-        />
-        <select
-          value={col.type || 'text'}
-          onChange={(e) => {
-            const cols = [...(field.columns || [])];
-            cols[ci] = { ...cols[ci], type: e.target.value };
-            updateField(fi, 'columns', cols);
-          }}
-          style={{ padding: '3px 5px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px' }}
-        >
-          <option value="text">Texte</option>
-          <option value="number">Nombre</option>
-          <option value="date">Date</option>
-        </select>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: '#64748b', cursor: 'pointer' }}>
+      <div
+        key={col.id || ci}
+        style={{
+          display: 'flex', flexDirection: 'column', gap: '6px',
+          marginBottom: '6px', padding: '8px', borderRadius: '6px',
+          background: '#fff', border: '1px solid #bae6fd',
+        }}
+      >
+        {/* Ligne 1 : numéro + nom colonne + supprimer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{
+            width: '18px', height: '18px', borderRadius: '50%',
+            background: '#e0f2fe', color: '#0369a1', fontSize: '10px',
+            fontWeight: 700, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', flexShrink: 0,
+          }}>
+            {ci + 1}
+          </span>
           <input
-            type="checkbox"
-            checked={col.required || false}
+            value={col.label}
             onChange={(e) => {
               const cols = [...(field.columns || [])];
-              cols[ci] = { ...cols[ci], required: e.target.checked };
+              cols[ci] = { ...cols[ci], label: e.target.value };
               updateField(fi, 'columns', cols);
             }}
+            placeholder="Nom colonne"
+            style={{ flex: 1, minWidth: 0, padding: '4px 8px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px', outline: 'none' }}
           />
-          Req
-        </label>
-        <button
-          onClick={() => {
-            const cols = (field.columns || []).filter((_, i) => i !== ci);
-            updateField(fi, 'columns', cols);
-          }}
-          style={{ background: '#fee2e2', color: '#dc2626', border: 'none', width: '18px', height: '18px', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontWeight: 700, flexShrink: 0 }}
-        >×</button>
+          <button
+            onClick={() => {
+              const cols = (field.columns || []).filter((_, i) => i !== ci);
+              updateField(fi, 'columns', cols);
+            }}
+            title="Supprimer la colonne"
+            style={{ background: '#fee2e2', color: '#dc2626', border: 'none', width: '20px', height: '20px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+          >×</button>
+        </div>
+
+        {/* Ligne 2 : type + obligatoire */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '24px' }}>
+          <select
+            value={col.type || 'text'}
+            onChange={(e) => {
+              const cols = [...(field.columns || [])];
+              cols[ci] = { ...cols[ci], type: e.target.value };
+              updateField(fi, 'columns', cols);
+            }}
+            style={{ flex: 1, minWidth: 0, padding: '4px 6px', borderRadius: '4px', border: '1px solid #bae6fd', fontSize: '11px', background: '#f8fafc' }}
+          >
+            <option value="text">Texte</option>
+            <option value="number">Nombre</option>
+            <option value="date">Date</option>
+          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', color: '#64748b', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <input
+              type="checkbox"
+              checked={col.required || false}
+              onChange={(e) => {
+                const cols = [...(field.columns || [])];
+                cols[ci] = { ...cols[ci], required: e.target.checked };
+                updateField(fi, 'columns', cols);
+              }}
+            />
+            Obligatoire
+          </label>
+        </div>
       </div>
     ))}
   </div>
