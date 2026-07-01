@@ -221,10 +221,6 @@ const ProjectDetail = () => {
                     <h2 style={{ margin:0, color:'#0F172A', fontWeight:900, fontSize:'18px' }}>Nouveau workflow</h2>
                   </div>
                   <div style={{marginBottom:'16px'}}>
-                    <label style={{display:'block',fontWeight:700,fontSize:'12px',color:'#64748B',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:'7px'}}>Nom du workflow *</label>
-                    <input defaultValue="" onChange={e=>wfNameRef.current=e.target.value} placeholder="Ex : Validation des plans" autoFocus style={inpStyle}/>
-                  </div>
-                  <div style={{marginBottom:'16px'}}>
                     <label style={{display:'block',fontWeight:700,fontSize:'12px',color:'#64748B',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:'7px'}}>Description</label>
                     <input defaultValue="" onChange={e=>wfDescRef.current=e.target.value} placeholder="Description…" style={inpStyle}/>
                   </div>
