@@ -88,6 +88,19 @@ const TaskValidationPage = () => {
         if (step?.checklist?.length) {
           setChecklist(step.checklist.map(c => ({ ...c, checked: false })));
         }
+        // ✅ Init des champs "table" : pré-remplir les lignes héritées de l'étape 0
+        const step0Tbl = wf.steps?.[0]?.form?.fields?.find(f => f.type === 'table');
+        const initTableValues = {};
+        (step?.form?.fields || []).filter(f => f.type === 'table').forEach(f => {
+          if (f.inheritTableFrom && Array.isArray(step0Tbl?.data)) {
+            initTableValues[f.id] = step0Tbl.data.map(row => ({ ...row }));
+          } else {
+            initTableValues[f.id] = [{}];
+          }
+        });
+        if (Object.keys(initTableValues).length) {
+          setFormValues(prev => ({ ...prev, ...initTableValues }));
+        }
       } catch (err) {
         setMsg('Erreur : ' + (err.response?.data?.message || err.message));
       } finally {
@@ -107,7 +120,7 @@ const TaskValidationPage = () => {
     if (missing) { setMsg('Checklist : "' + missing.label + '" est requis'); return; }
     // Vérifier champs requis
     const reqField = (step?.form?.fields || []).find(f =>
-      f.required && !['auto_user','auto_status','auto_number'].includes(f.type) &&
+      f.required && !['auto_user','auto_status','auto_number','table'].includes(f.type) &&
       (!formValues[f.id] || String(formValues[f.id]).trim() === '')
     );
     if (reqField) { setMsg('Champ requis : ' + reqField.label); return; }
@@ -158,6 +171,40 @@ const TaskValidationPage = () => {
     setUploading(false);
   };
 
+  // ── Rendu d'une valeur soumise par l'employé (section résumé) ──────────────
+  const renderStep0Value = (f) => {
+    const val = f.data;
+    if (f.type === 'table' && Array.isArray(val)) {
+      if (val.length === 0) return <span style={{ color:T.slateL, fontStyle:'italic' }}>Tableau vide</span>;
+      const cols = f.columns || [];
+      return (
+        <div style={{ overflowX:'auto', marginTop:'4px' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
+            <thead>
+              <tr style={{ background:'#fff' }}>
+                {cols.map(col => (
+                  <th key={col.id} style={{ padding:'6px 10px', textAlign:'left', fontWeight:700, color:'#0369A1', borderBottom:'1.5px solid #BAE6FD', whiteSpace:'nowrap' }}>{col.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {val.map((row, ri) => (
+                <tr key={ri} style={{ borderBottom:'1px solid #E0F2FE' }}>
+                  {cols.map(col => (
+                    <td key={col.id} style={{ padding:'6px 10px', color:T.slate }}>{row[col.id] ?? '—'}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    if (typeof val === 'boolean') return val ? '✓ Oui' : '✗ Non';
+    if (Array.isArray(val)) return val.join(', ');
+    return String(val);
+  };
+
   // ── Rendu champ formulaire ────────────────────────────────────────────────
   const renderField = (field) => {
     const val = formValues[field.id] ?? '';
@@ -195,6 +242,77 @@ const TaskValidationPage = () => {
         {lbl}<SignatureCanvas value={val} onChange={set}/>
       </div>
     );
+    if (field.type === 'table') {
+      // Colonnes héritées de l'étape employé (lecture seule) + colonnes propres à cette étape (éditables)
+      const step0Tbl  = step0Fields.find(f => f.type === 'table');
+      const baseCols  = field.inheritTableFrom ? (step0Tbl?.columns || []) : [];
+      const ownCols   = field.columns || [];
+      const allCols   = field.inheritTableFrom ? [...baseCols, ...ownCols] : ownCols;
+      const rows      = Array.isArray(val) && val.length ? val : [{}];
+      const isBaseCol = (colId) => baseCols.some(c => c.id === colId);
+
+      const updateCell = (ri, colId, cellVal) => {
+        const next = rows.map((r, i) => i === ri ? { ...r, [colId]: cellVal } : r);
+        set(next);
+      };
+      const addRow    = () => set([...rows, {}]);
+      const removeRow = (ri) => set(rows.filter((_, i) => i !== ri));
+
+      return (
+        <div key={field.id} style={{ gridColumn:'1 / -1', marginBottom:'14px' }}>
+          {lbl}
+          <div style={{ overflowX:'auto', border:`1.5px solid ${T.border}`, borderRadius:'10px' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'13px' }}>
+              <thead>
+                <tr style={{ background:'#F8FAFC' }}>
+                  {allCols.map(col => (
+                    <th key={col.id} style={{ padding:'8px 10px', textAlign:'left', fontWeight:700, color:T.slateM, borderBottom:`1.5px solid ${T.border}`, whiteSpace:'nowrap' }}>
+                      {col.label}{col.required && <span style={{ color:T.red }}> *</span>}
+                      {isBaseCol(col.id) && (
+                        <span style={{ marginLeft:'6px', fontSize:'9px', fontWeight:700, color:'#0369A1', background:'#E0F2FE', padding:'1px 5px', borderRadius:'4px' }}>hérité</span>
+                      )}
+                    </th>
+                  ))}
+                  {!field.inheritTableFrom && <th style={{ width:'32px' }}/>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, ri) => (
+                  <tr key={ri} style={{ borderBottom:`1px solid ${T.border}` }}>
+                    {allCols.map(col => (
+                      <td key={col.id} style={{ padding:'4px 6px' }}>
+                        {isBaseCol(col.id) ? (
+                          <span style={{ display:'block', padding:'6px 8px', color:T.slateM }}>{row[col.id] ?? '—'}</span>
+                        ) : (
+                          <input
+                            type={col.type==='number'?'number':col.type==='date'?'date':'text'}
+                            value={row[col.id] ?? ''}
+                            onChange={e => updateCell(ri, col.id, e.target.value)}
+                            style={{ width:'100%', boxSizing:'border-box', padding:'6px 8px', borderRadius:'6px', border:`1.5px solid ${T.border}`, fontSize:'13px', fontFamily:font, outline:'none' }}
+                          />
+                        )}
+                      </td>
+                    ))}
+                    {!field.inheritTableFrom && (
+                      <td style={{ padding:'4px' }}>
+                        <button type="button" onClick={() => removeRow(ri)}
+                          style={{ width:'24px', height:'24px', borderRadius:'6px', border:'none', background:T.redSoft, color:T.red, cursor:'pointer', fontWeight:700 }}>×</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!field.inheritTableFrom && (
+            <button type="button" onClick={addRow}
+              style={{ marginTop:'8px', padding:'6px 14px', borderRadius:'8px', border:`1.5px dashed ${T.border}`, background:'#F8FAFC', color:T.slateM, cursor:'pointer', fontWeight:600, fontSize:'12px', fontFamily:font }}>
+              + Ajouter une ligne
+            </button>
+          )}
+        </div>
+      );
+    }
     return (
       <div key={field.id} style={{ marginBottom:'14px' }}>
         {lbl}
@@ -286,9 +404,9 @@ const TaskValidationPage = () => {
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))', gap:'8px 24px' }}>
                 {step0Fields.filter(f => f.data !== null && f.data !== undefined && f.data !== '').map(f => (
-                  <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'2px' }}>
+                  <div key={f.id} style={{ display:'flex', flexDirection:'column', gap:'2px', gridColumn: f.type==='table' ? '1 / -1' : 'auto' }}>
                     <span style={{ fontSize:'11px', fontWeight:700, color:'#0369A1' }}>{f.label}</span>
-                    <span style={{ fontSize:'13px', color:T.slate, fontWeight:500 }}>{typeof f.data === 'boolean' ? (f.data ? '✓ Oui' : '✗ Non') : String(f.data)}</span>
+                    <span style={{ fontSize:'13px', color:T.slate, fontWeight:500 }}>{renderStep0Value(f)}</span>
                   </div>
                 ))}
               </div>
