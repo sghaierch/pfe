@@ -48,12 +48,8 @@ const FIELD_TYPES = [
   { type: 'date',        label: 'Date',        icon: 'D'   },
   { type: 'select',      label: 'Liste',       icon: 'L'   },
   { type: 'textarea',    label: 'Zone texte',  icon: 'TT'  },
-  { type: 'checkbox',    label: 'Case',        icon: 'CB'  },
   { type: 'signature',   label: 'Signature',   icon: 'SG'  },
   { type: 'table',       label: 'Tableau',     icon: 'TB'  },
-  { type: 'auto_number', label: 'N° Auto',     icon: '#'   },
-  { type: 'auto_user',   label: 'Demandeur',   icon: '@'   },
-  { type: 'auto_status', label: 'Statut Auto', icon: '~'   },
 ];
 
 // ── Icons ──────────────────────────────────────────────────────────────────
@@ -84,9 +80,9 @@ const B = '#2563EB';
 // ── Helpers ────────────────────────────────────────────────────────────────
 const makeField = (type) => ({
   id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-  label: type === 'auto_number' ? 'Numéro document' : type === 'auto_user' ? 'Demandeur' : type === 'auto_status' ? 'Statut' : 'Nouveau champ',
+  label: 'Nouveau champ',
   type, required: false,
-  readOnly: ['auto_number', 'auto_user', 'auto_status'].includes(type),
+  readOnly: false,
   autoSource: '', options: type === 'select' ? ['Option 1'] : [],
   columns: type === 'table' ? [
     { id: 'col_article',  label: 'Article',  type: 'text',   required: true },
@@ -593,7 +589,7 @@ const handleArchive = async () => {
             {/* Field type palette */}
             <div style={{ display:'flex', gap:'5px', flexWrap:'wrap', marginBottom:'12px', padding:'10px', background:'#F8FAFC', borderRadius:'10px', border:'1.5px dashed #E2E8F0' }}>
               <span style={{ fontSize:'11px', color:'#94A3B8', fontWeight:700, display:'flex', alignItems:'center', marginRight:'4px' }}>+ Ajouter :</span>
-              {FIELD_TYPES.filter(ft => isEmploye ? true : ft.type !== 'auto_number').map(ft => (
+              {FIELD_TYPES.map((ft) => (
                 <button key={ft.type} onClick={() => addStepField(si, ft.type)}
                   style={{ padding:'5px 10px', borderRadius:'7px', border:'1.5px solid #E2E8F0', background:'#fff', cursor:'pointer', fontSize:'11px', fontWeight:700, color:'#475569', fontFamily:'monospace', transition:'all 0.1s' }}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor=B;e.currentTarget.style.color=B;e.currentTarget.style.background='#EFF6FF';}}
