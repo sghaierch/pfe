@@ -82,7 +82,8 @@ const resolveTemplate = async (conn, eventType, vars) => {
         const trigger = settings.triggers?.[eventType];
 
         if (trigger && trigger.email === false) {
-          return null;
+          // ✅ Signal explicite "désactivé" — différent de "pas de template custom"
+          return { disabled: true };
         }
 
         if (tmpl && (tmpl.subject || tmpl.body)) {

@@ -8,7 +8,11 @@ const safeModel = (conn, name, schema) => {
 // ── Helper email ──────────────────────────────────────────────────────────────
 const sendEmailWithTemplate = async (conn, eventType, vars, fallbackTmpl) => {
   const custom = await resolveTemplate(conn, eventType, vars);
-  if (custom === null) return;
+  // ✅ FIX : on ne saute l'envoi QUE si le trigger est explicitement désactivé.
+  // Avant, `custom === null` (= "pas de template perso configuré", le cas par
+  // défaut) était traité comme "désactivé" et bloquait TOUS les emails tant
+  // qu'aucun template custom n'était configuré dans les réglages.
+  if (custom?.disabled) return;
   const tmpl = {
     subject: custom?.subject || fallbackTmpl.subject,
     html:    custom?.html    || fallbackTmpl.html,
